@@ -306,7 +306,7 @@ function TenantCard({ tenant, onEdit, onDelete, onMarkPaid, onMarkUnpaid }) {
             className="inline-flex items-center gap-2 rounded-md border border-red-200 px-3 py-2 text-sm font-semibold text-coral hover:bg-red-50"
           >
             <Trash2 className="h-4 w-4" aria-hidden="true" />
-            Delete
+            Vacate
           </button>
         </div>
       </div>
