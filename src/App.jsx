@@ -81,7 +81,6 @@ function BedGrid({ tenants, properties, selectedPropertyId }) {
     fetchRoomsWithBeds(selectedPropertyId).then(setRooms).finally(() => setLoading(false));
   }, [selectedPropertyId]);
 
-  // Build occupied bed set
   const occupiedBeds = useMemo(() => new Set(tenants.map(t => t.bedId)), [tenants]);
 
   if (!selectedPropertyId) return null;
@@ -519,12 +518,20 @@ export default function App() {
   useEffect(() => {
     if (!hasSupabaseConfig) { setLoadingProperties(false); return; }
     fetchProperties()
-      .then(data => { setProperties(data); if (data.length > 0) setSelectedPropertyId(data[0].id); })
+      .then(data => {
+        setProperties(data);
+        if (data.length > 0) {
+          const saved = localStorage.getItem('stayops_property');
+          const valid = saved && data.find(p => p.id === saved);
+          setSelectedPropertyId(valid ? saved : data[0].id);
+        }
+      })
       .catch(e => setError(e.message))
       .finally(() => setLoadingProperties(false));
   }, []);
 
   useEffect(() => {
+    if (selectedPropertyId) localStorage.setItem('stayops_property', selectedPropertyId);
     setLoading(true);
     fetchTenants(selectedPropertyId || null)
       .then(setTenants)
