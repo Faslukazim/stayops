@@ -7,6 +7,7 @@ import {
 import { createTenant, deleteTenant, fetchTenants, updateTenant } from './services/tenantService';
 import { fetchProperties, fetchRoomsWithBeds } from './services/propertyService';
 import { hasSupabaseConfig } from './lib/supabase';
+import RoomsPage from './RoomsPage';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -161,6 +162,7 @@ function Header({ properties, selectedPropertyId, onPropertyChange, loadingPrope
 
 const PAGES = [
   { id: 'dashboard', label: 'Overview', icon: Home },
+  { id: 'rooms',     label: 'Rooms',    icon: BedDouble },
   { id: 'tenants',   label: 'Tenants',  icon: Users },
   { id: 'payments',  label: 'Payments', icon: CreditCard },
 ];
@@ -168,7 +170,7 @@ const PAGES = [
 function BottomNav({ active, onChange }) {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-white sm:hidden">
-      <div className="grid grid-cols-3">
+      <div className="grid grid-cols-4">
         {PAGES.map(p => {
           const Icon = p.icon;
           const isActive = active === p.id;
@@ -275,15 +277,18 @@ function BedSelector({ properties, propertyId, roomId, bedId, onPropertyChange, 
 
 // ─── tenant form ─────────────────────────────────────────────────────────────
 
-function TenantForm({ initialTenant, properties, defaultPropertyId, onSubmit, onCancel, saving }) {
+function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onSubmit, onCancel, saving }) {
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
-    setForm(initialTenant
-      ? { name: initialTenant.name, phone: initialTenant.phone, propertyId: initialTenant.propertyId ?? defaultPropertyId ?? '', roomId: initialTenant.roomId ?? '', bedId: initialTenant.bedId ?? '', monthlyRent: initialTenant.monthlyRent, joinDate: initialTenant.joinDate }
-      : { ...emptyForm, propertyId: defaultPropertyId ?? '' }
-    );
-  }, [initialTenant, defaultPropertyId]);
+    if (initialTenant) {
+      setForm({ name: initialTenant.name, phone: initialTenant.phone, propertyId: initialTenant.propertyId ?? defaultPropertyId ?? '', roomId: initialTenant.roomId ?? '', bedId: initialTenant.bedId ?? '', monthlyRent: initialTenant.monthlyRent, joinDate: initialTenant.joinDate });
+    } else if (prefill) {
+      setForm({ ...emptyForm, propertyId: prefill.propertyId ?? '', roomId: prefill.roomId ?? '', bedId: prefill.bedId ?? '' });
+    } else {
+      setForm({ ...emptyForm, propertyId: defaultPropertyId ?? '' });
+    }
+  }, [initialTenant, defaultPropertyId, prefill]);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -429,10 +434,10 @@ function DashboardPage({ tenants, totalBeds, properties, selectedPropertyId, onG
   );
 }
 
-function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, saving, onAddTenant, onUpdateTenant, onCancelEdit, onEdit, onDelete, onMarkPaid, onMarkUnpaid }) {
+function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, saving, roomPrefill, onAddTenant, onUpdateTenant, onCancelEdit, onEdit, onDelete, onMarkPaid, onMarkUnpaid }) {
   return (
     <div className="grid gap-4 lg:grid-cols-[380px_1fr]">
-      <TenantForm initialTenant={editingTenant} properties={properties} defaultPropertyId={defaultPropertyId} onSubmit={editingTenant ? onUpdateTenant : onAddTenant} onCancel={onCancelEdit} saving={saving} />
+      <TenantForm initialTenant={editingTenant} properties={properties} defaultPropertyId={defaultPropertyId} prefill={roomPrefill} onSubmit={editingTenant ? onUpdateTenant : onAddTenant} onCancel={onCancelEdit} saving={saving} />
       <div className="flex flex-col gap-3">
         {tenants.length === 0
           ? <Card className="p-8 text-center text-sm text-slate2">No tenants yet.</Card>
@@ -513,6 +518,7 @@ export default function App() {
   const [editingTenant, setEditingTenant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [roomPrefill, setRoomPrefill] = useState(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -597,11 +603,19 @@ export default function App() {
         ) : (
           <>
             {page === 'dashboard' && <DashboardPage tenants={tenants} totalBeds={totalBeds} properties={properties} selectedPropertyId={selectedPropertyId} onGoToPayments={() => setPage('payments')} />}
+            {page === 'rooms' && (
+              <RoomsPage
+                selectedPropertyId={selectedPropertyId}
+                onAssignBed={(prefill) => { setRoomPrefill(prefill); setPage('tenants'); }}
+              />
+            )}
             {page === 'tenants' && (
               <TenantsPage
                 tenants={tenants} properties={properties} defaultPropertyId={selectedPropertyId}
                 editingTenant={editingTenant} saving={saving}
-                onAddTenant={handleAdd} onUpdateTenant={handleUpdate}
+                roomPrefill={roomPrefill}
+                onAddTenant={(t) => { handleAdd(t); setRoomPrefill(null); }}
+                onUpdateTenant={handleUpdate}
                 onCancelEdit={() => setEditingTenant(null)}
                 onEdit={t => { setEditingTenant(t); setPage('tenants'); }}
                 onDelete={handleDelete}
