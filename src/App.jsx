@@ -93,7 +93,9 @@ function BedGrid({ tenants, properties, selectedPropertyId }) {
       <div className="mt-3 flex flex-col gap-2">
         {rooms.map(room => (
           <div key={room.id} className="flex items-center gap-2">
-            <span className="w-10 text-xs font-semibold text-slate2 shrink-0">R{room.room_number}</span>
+            <span className="w-10 text-xs font-semibold text-slate2 shrink-0">R<span className="w-10 text-xs font-semibold text-slate2 shrink-0">
+  {properties.find(p => p.id === selectedPropertyId)?.name === 'StayB Elite' ? room.room_number : `R${room.room_number}`}
+</span>{room.room_number}</span>
             <div className="flex gap-1.5 flex-wrap">
               {room.beds?.sort((a, b) => Number(a.bed_number) - Number(b.bed_number)).map(bed => {
                 const isOccupied = occupiedBeds.has(bed.id) || bed.status === 'occupied';
