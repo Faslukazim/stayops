@@ -46,24 +46,33 @@ function RoomCard({ room, isSelected, onClick }) {
       type="button"
       onClick={onClick}
       className={`w-full text-left rounded-xl border p-4 transition-all active:scale-[0.98] ${
-        isSelected
-  ? 'border-leaf bg-ink text-white shadow-lift ring-2 ring-leaf/20'
+       isSelected
+  ?'border-leaf bg-emerald-50 shadow-lift ring-2 ring-leaf/30'
           : 'border-border bg-white hover:border-slate2 shadow-card'
       }`}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className={`font-bold text-sm ${isSelected ? 'text-white' : 'text-ink'}`}>
-          Room {room.room_number}
-        </p>
-        {badgeStatus && (
-          <StatusBadge
-            status={badgeStatus}
-            label={badgeLabel}
-          />
-        )}
-      </div>
+  <div>
+    <p className="font-bold text-base text-ink">
+      Room {room.room_number}
+    </p>
 
-      <p className={`mt-1 text-xs ${isSelected ? 'text-white/70' : 'text-slate2'}`}>
+    {isSelected && (
+      <span className="text-[10px] font-semibold uppercase tracking-wide text-leaf">
+        Selected
+      </span>
+    )}
+  </div>
+
+  {badgeStatus && (
+    <StatusBadge
+      status={badgeStatus}
+      label={badgeLabel}
+    />
+  )}
+</div>
+
+      <p className={`mt-1 text-xs ${isSelected ? 'text-slate2' : 'text-slate2'}`}>
   {occupied} Occupied • {capacity - occupied} Vacant
 </p>
 
@@ -74,14 +83,12 @@ function RoomCard({ room, isSelected, onClick }) {
     <div
       key={i}
       className={`h-4 w-4 rounded ${
-        i < occupied
-          ? isSelected
-            ? 'bg-white'
-            : 'bg-leaf'
-          : isSelected
-            ? 'bg-white/30'
-            : 'bg-border'
-      }`}
+  i < occupied
+    ? 'bg-leaf'
+    : isSelected
+      ? 'bg-leaf/30 border border-leaf'
+      : 'bg-border'
+}`}
     />
   ))}
 </div>
@@ -352,7 +359,8 @@ if (selectedRoom) {
   const summaryStrip = (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-4">
       <StatCard label="Total rooms"     value={rooms.length}        color="text-ink" />
-      <StatCard label="Occupied beds"   value={`${stats.occupied}/${stats.totalBeds}`} color="text-leaf" />
+      <StatCard label="Occupancy"
+value={`${Math.round((stats.occupied / stats.totalBeds) * 100)}%`} />
 <StatCard
   label="Vacant beds"
   value={stats.totalBeds - stats.occupied}
