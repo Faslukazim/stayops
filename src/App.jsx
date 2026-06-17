@@ -550,37 +550,39 @@ function DashboardPage({ tenants, totalBeds, selectedPropertyId, onGoToPayments 
   return (
     <div className="flex flex-col gap-4">
       <StatStrip tenants={tenants} totalBeds={totalBeds} />
-      <BedGrid tenants={tenants} selectedPropertyId={selectedPropertyId} />
+      {/* <BedGrid tenants={tenants} selectedPropertyId={selectedPropertyId} /> */}
       <Card className="overflow-hidden">
-        <SectionHeader
-          title="Recent tenants"
-          action={
-            <button
-              type="button"
-              onClick={onGoToPayments}
-              className="text-xs font-semibold text-slate2 hover:text-ink"
-            >
-              View payments →
-            </button>
-          }
-        />
-        {tenants.length === 0
-          ? <p className="px-4 py-6 text-sm text-slate2">No tenants yet. Add one in the Tenants tab.</p>
-          : (
-            <div className="divide-y divide-border">
-              {tenants.slice(0, 5).map(t => (
-                <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-ink truncate">{t.name}</p>
-                    <p className="text-xs text-slate2">Room {t.roomNumber} · Bed {t.bedNumber}</p>
-                  </div>
-                  <StatusBadge status={t.paymentStatus === 'Paid' ? 'paid' : 'unpaid'} />
-                </div>
-              ))}
+  <SectionHeader title="Recent Activity" />
+
+  {tenants.filter(t => t.paymentStatus === 'Unpaid').length === 0 ? (
+    <p className="px-4 py-6 text-sm text-slate2">
+      No unpaid tenants.
+    </p>
+  ) : (
+    <div className="divide-y divide-border">
+      {tenants
+        .filter(t => t.paymentStatus === 'Unpaid')
+        .slice(0, 5)
+        .map(t => (
+          <div
+            key={t.id}
+            className="flex items-center justify-between px-4 py-3"
+          >
+            <div>
+              <p className="font-semibold text-ink">
+                {t.name}
+              </p>
+              <p className="text-xs text-slate2">
+                Room {t.roomNumber} · Bed {t.bedNumber}
+              </p>
             </div>
-          )
-        }
-      </Card>
+
+            <StatusBadge status="unpaid" />
+          </div>
+        ))}
+    </div>
+  )}
+</Card>
     </div>
   );
 }
