@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   BedDouble, CheckCircle2, ChevronDown, CreditCard,
-  Home, Loader2, Pencil, Plus, Save, Trash2, Users, X,
+  Home, Loader2, MessageCircle, Pencil, Plus, Save, Trash2, UserPlus, Users, X,
 } from 'lucide-react';
 import { createTenant, deleteTenant, fetchTenants, forfeitDeposit, returnDeposit, updateTenant } from './services/tenantService';
 import { fetchProperties, fetchRoomsWithBeds } from './services/propertyService';
@@ -10,91 +10,10 @@ import RoomsPage from './RoomsPage';
 import {
   fmt, Label, Card, SectionHeader, Btn, IconBtn,
   StatusBadge, PaymentToggleBtn, WhatsAppLink,
-  PageLoader, InlineLoader, StatCard, ConfirmInline,
+  PageLoader, StatCard, ConfirmInline,
 } from './components/ui';
 
-// ─── stat strip ──────────────────────────────────────────────────────────────
 
-function StatStrip({ tenants, totalBeds }) {
-  const occupied = tenants.length;
-  const available = Math.max(totalBeds - occupied, 0);
-  const unpaid = tenants.filter(t => t.paymentStatus === 'Unpaid').length;
-  const revenue = tenants.reduce((s, t) => s + Number(t.monthlyRent || 0), 0);
-  const pct = totalBeds ? Math.round((occupied / totalBeds) * 100) : 0;
-
-  return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <StatCard label="Occupied"  value={occupied}      sub={`${pct}%`}         color="text-leaf" />
-      <StatCard label="Available" value={available}     sub={`of ${totalBeds}`} color="text-amber" />
-      <StatCard label="Unpaid"    value={unpaid}        sub="this month"        color={unpaid > 0 ? 'text-coral' : 'text-leaf'} />
-      <StatCard label="Rent Roll" value={fmt(revenue)}  sub="/month"            color="text-ink" />
-    </div>
-  );
-}
-
-// ─── bed grid ────────────────────────────────────────────────────────────────
-
-function BedGrid({ tenants, selectedPropertyId }) {
-  const [rooms, setRooms] = useState([]);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!selectedPropertyId || !hasSupabaseConfig) return;
-    setLoading(true);
-    fetchRoomsWithBeds(selectedPropertyId).then(setRooms).finally(() => setLoading(false));
-  }, [selectedPropertyId]);
-
-  const occupiedBeds = useMemo(() => new Set(tenants.map(t => t.bedId)), [tenants]);
-
-  if (!selectedPropertyId) return null;
-
-  return (
-    <Card className="p-4">
-      <Label>Bed map</Label>
-      {loading ? (
-        <InlineLoader text="Loading bed map…" />
-      ) : (
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {rooms.map(room => (
-            <div key={room.id} className="flex items-center gap-2">
-              <span className="w-10 text-xs font-semibold tabular-nums text-slate2 shrink-0">
-                {room.room_number}
-              </span>
-              <div className="flex gap-1.5 flex-wrap">
-                {room.beds?.sort((a, b) => Number(a.bed_number) - Number(b.bed_number)).map(bed => {
-                  const isOccupied = occupiedBeds.has(bed.id) || bed.status === 'occupied';
-                  return (
-                    <div
-                      key={bed.id}
-                      title={`Room ${room.room_number} · Bed ${bed.bed_number} · ${isOccupied ? 'Occupied' : 'Available'}`}
-                      className={`h-6 w-6 rounded text-xs font-bold tabular-nums flex items-center justify-center transition-colors ${
-                        isOccupied
-                          ? 'bg-ink text-white'
-                          : 'bg-leaf/10 text-leaf border border-leaf/30'
-                      }`}
-                    >
-                      {bed.bed_number}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      <div className="mt-3 flex items-center gap-4 text-xs text-slate2">
-        <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded bg-ink inline-block" /> Occupied
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-3 w-3 rounded bg-leaf/10 border border-leaf/30 inline-block" /> Available
-        </span>
-      </div>
-    </Card>
-  );
-}
-
-// ─── property selector ───────────────────────────────────────────────────────
 
 function PropertyPill({ properties, selectedId, onChange, loading }) {
   if (loading) {
@@ -546,43 +465,198 @@ function TenantCard({ tenant, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onRetu
 
 // ─── pages ───────────────────────────────────────────────────────────────────
 
-function DashboardPage({ tenants, totalBeds, selectedPropertyId, onGoToPayments }) {
+// ─── dashboard: business health ──────────────────────────────────────────────
+// Occupancy, vacancy, pending rent, and committed monthly revenue at a glance.
+
+function BusinessHealth({ tenants, totalBeds }) {
+  const occupied = tenants.length;
+  const vacant = Math.max(totalBeds - occupied, 0);
+  const pct = totalBeds ? Math.round((occupied / totalBeds) * 100) : 0;
+  const unpaid = tenants.filter(t => t.paymentStatus === 'Unpaid');
+  const pendingRent = unpaid.reduce((s, t) => s + Number(t.monthlyRent || 0), 0);
+  const revenue = tenants.reduce((s, t) => s + Number(t.monthlyRent || 0), 0);
+
   return (
-    <div className="flex flex-col gap-4">
-      <StatStrip tenants={tenants} totalBeds={totalBeds} />
-      {/* <BedGrid tenants={tenants} selectedPropertyId={selectedPropertyId} /> */}
-      <Card className="overflow-hidden">
-  <SectionHeader title="Recent Activity" />
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <StatCard
+        label="Occupancy"
+        value={`${pct}%`}
+        sub={`${occupied}/${totalBeds} beds`}
+        color={pct >= 80 ? 'text-leaf' : pct >= 50 ? 'text-amber' : 'text-coral'}
+      />
+      <StatCard
+        label="Vacant Beds"
+        value={vacant}
+        sub={`of ${totalBeds}`}
+        color={vacant > 0 ? 'text-amber' : 'text-leaf'}
+      />
+      <StatCard
+        label="Pending Rent"
+        value={fmt(pendingRent)}
+        sub={`${unpaid.length} unpaid`}
+        color={pendingRent > 0 ? 'text-coral' : 'text-leaf'}
+      />
+      <StatCard
+        label="Monthly Revenue"
+        value={fmt(revenue)}
+        sub={`${tenants.length} tenants`}
+        color="text-ink"
+      />
+    </div>
+  );
+}
 
-  {tenants.filter(t => t.paymentStatus === 'Unpaid').length === 0 ? (
-    <p className="px-4 py-6 text-sm text-slate2">
-      No unpaid tenants.
-    </p>
-  ) : (
-    <div className="divide-y divide-border">
-      {tenants
-        .filter(t => t.paymentStatus === 'Unpaid')
-        .slice(0, 5)
-        .map(t => (
-          <div
-            key={t.id}
-            className="flex items-center justify-between px-4 py-3"
-          >
-            <div>
-              <p className="font-semibold text-ink">
-                {t.name}
-              </p>
-              <p className="text-xs text-slate2">
-                Room {t.roomNumber} · Bed {t.bedNumber}
-              </p>
+// ─── dashboard: attention required ───────────────────────────────────────────
+// Unpaid tenants only — the people who need a nudge today.
+
+function buildWhatsAppHref(tenant) {
+  const phone = String(tenant.phone).replace(/\D/g, '');
+  const msg = `Hi ${tenant.name}, rent reminder for Room ${tenant.roomNumber} Bed ${tenant.bedNumber}. Monthly rent ${fmt(tenant.monthlyRent)} is unpaid. Please pay at your earliest.`;
+  return `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+}
+
+function AttentionRequired({ tenants }) {
+  const unpaid = tenants.filter(t => t.paymentStatus === 'Unpaid');
+
+  function handleWhatsAppAll() {
+    unpaid.forEach(t => window.open(buildWhatsAppHref(t), '_blank'));
+  }
+
+  return (
+    <Card className="overflow-hidden">
+      <SectionHeader
+        title="Attention Required"
+        action={unpaid.length > 0 && (
+          <Btn variant="secondary" size="sm" onClick={handleWhatsAppAll}>
+            <MessageCircle className="h-3.5 w-3.5" />
+            WhatsApp All
+          </Btn>
+        )}
+      />
+      {unpaid.length === 0 ? (
+        <p className="px-4 py-6 text-sm text-slate2">
+          All tenants are paid up. Nothing needs attention.
+        </p>
+      ) : (
+        <div className="divide-y divide-border">
+          {unpaid.map(t => (
+            <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
+              <div className="min-w-0">
+                <p className="font-semibold text-ink truncate">{t.name}</p>
+                <p className="text-xs text-slate2">Room {t.roomNumber}</p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-sm font-semibold text-coral tabular-nums">
+                  {fmt(t.monthlyRent)}
+                </span>
+                <WhatsAppLink
+                  name={t.name}
+                  phone={t.phone}
+                  roomNumber={t.roomNumber}
+                  bedNumber={t.bedNumber}
+                  rent={t.monthlyRent}
+                />
+              </div>
             </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
 
-            <StatusBadge status="unpaid" />
+// ─── dashboard: quick actions ─────────────────────────────────────────────────
+// The four things an operator actually does, one tap away.
+
+function QuickActions({ onAssignTenant, onAddTenant, onOpenRooms, onOpenPayments }) {
+  const actions = [
+    { label: 'Assign Tenant', icon: UserPlus,  onClick: onAssignTenant },
+    { label: 'Add Tenant',    icon: Plus,      onClick: onAddTenant },
+    { label: 'Open Rooms',    icon: BedDouble, onClick: onOpenRooms },
+    { label: 'Payments',      icon: CreditCard,onClick: onOpenPayments },
+  ];
+
+  return (
+    <Card className="overflow-hidden">
+      <SectionHeader title="Quick Actions" />
+      <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-4">
+        {actions.map(a => (
+          <button
+            key={a.label}
+            type="button"
+            onClick={a.onClick}
+            className="flex flex-col items-center gap-1.5 rounded-lg border border-border py-3.5 text-xs font-semibold text-ink transition-all hover:bg-mist active:scale-95"
+          >
+            <a.icon className="h-5 w-5 text-slate2" />
+            {a.label}
+          </button>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+// ─── dashboard: property snapshot ────────────────────────────────────────────
+// Rooms, beds, and how full the property is — read-only context, no charts.
+
+function PropertySnapshot({ tenants, totalBeds, selectedPropertyId }) {
+  const [rooms, setRooms] = useState([]);
+  const [loadingRooms, setLoadingRooms] = useState(false);
+
+  useEffect(() => {
+    if (!selectedPropertyId || !hasSupabaseConfig) { setRooms([]); return; }
+    setLoadingRooms(true);
+    fetchRoomsWithBeds(selectedPropertyId)
+      .then(setRooms)
+      .finally(() => setLoadingRooms(false));
+  }, [selectedPropertyId]);
+
+  const occupied = tenants.length;
+  const vacant = Math.max(totalBeds - occupied, 0);
+  const pct = totalBeds ? Math.round((occupied / totalBeds) * 100) : 0;
+  const roomCount = selectedPropertyId ? (loadingRooms ? '…' : rooms.length) : '—';
+
+  const stats = [
+    { label: 'Rooms',     value: roomCount },
+    { label: 'Beds',      value: totalBeds },
+    { label: 'Occupied',  value: occupied, color: 'text-leaf' },
+    { label: 'Vacant',    value: vacant, color: vacant > 0 ? 'text-amber' : 'text-leaf' },
+    { label: 'Occupancy', value: `${pct}%` },
+  ];
+
+  return (
+    <Card className="overflow-hidden">
+      <SectionHeader title="Property Snapshot" />
+      <div className="grid grid-cols-3 gap-3 p-4 sm:grid-cols-5">
+        {stats.map(s => (
+          <div key={s.label}>
+            <Label>{s.label}</Label>
+            <p className={`mt-1 text-lg font-bold tabular-nums ${s.color ?? 'text-ink'}`}>
+              {s.value}
+            </p>
           </div>
         ))}
-    </div>
-  )}
-</Card>
+      </div>
+    </Card>
+  );
+}
+
+function DashboardPage({ tenants, totalBeds, selectedPropertyId, onGoToPayments, onGoToRooms, onAddTenant, onAssignTenant }) {
+  return (
+    <div className="flex flex-col gap-4">
+      <BusinessHealth tenants={tenants} totalBeds={totalBeds} />
+      <AttentionRequired tenants={tenants} />
+      <QuickActions
+        onAssignTenant={onAssignTenant}
+        onAddTenant={onAddTenant}
+        onOpenRooms={onGoToRooms}
+        onOpenPayments={onGoToPayments}
+      />
+      <PropertySnapshot
+        tenants={tenants}
+        totalBeds={totalBeds}
+        selectedPropertyId={selectedPropertyId}
+      />
     </div>
   );
 }
@@ -802,6 +876,13 @@ export default function App() {
                   totalBeds={totalBeds}
                   selectedPropertyId={selectedPropertyId}
                   onGoToPayments={() => setPage('payments')}
+                  onGoToRooms={() => setPage('rooms')}
+                  onAssignTenant={() => setPage('rooms')}
+                  onAddTenant={() => {
+                    setEditingTenant(null);
+                    setRoomPrefill(null);
+                    setPage('tenants');
+                  }}
                 />
               )}
               {page === 'rooms' && (
