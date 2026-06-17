@@ -3,7 +3,7 @@ import {
   BedDouble, CheckCircle2, ChevronDown, CreditCard,
   Home, Loader2, Pencil, Plus, Save, Trash2, Users, X,
 } from 'lucide-react';
-import { createTenant, deleteTenant, fetchTenants, updateTenant } from './services/tenantService';
+import { createTenant, deleteTenant, fetchTenants, returnDeposit, updateTenant } from './services/tenantService';
 import { fetchProperties, fetchRoomsWithBeds } from './services/propertyService';
 import { hasSupabaseConfig } from './lib/supabase';
 import RoomsPage from './RoomsPage';
@@ -24,10 +24,10 @@ function StatStrip({ tenants, totalBeds }) {
 
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <StatCard label="Occupied"  value={occupied}      sub={`${pct}%`}      color="text-leaf" />
+      <StatCard label="Occupied"  value={occupied}      sub={`${pct}%`}         color="text-leaf" />
       <StatCard label="Available" value={available}     sub={`of ${totalBeds}`} color="text-amber" />
-      <StatCard label="Unpaid"    value={unpaid}        sub="this month"     color={unpaid > 0 ? 'text-coral' : 'text-leaf'} />
-      <StatCard label="Rent Roll" value={fmt(revenue)}  sub="/month"         color="text-ink" />
+      <StatCard label="Unpaid"    value={unpaid}        sub="this month"        color={unpaid > 0 ? 'text-coral' : 'text-leaf'} />
+      <StatCard label="Rent Roll" value={fmt(revenue)}  sub="/month"            color="text-ink" />
     </div>
   );
 }
@@ -55,8 +55,8 @@ function BedGrid({ tenants, selectedPropertyId }) {
         <InlineLoader text="Loading bed map…" />
       ) : (
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
-  {rooms.map(room => (
-    <div key={room.id} className="flex items-center gap-2">
+          {rooms.map(room => (
+            <div key={room.id} className="flex items-center gap-2">
               <span className="w-10 text-xs font-semibold tabular-nums text-slate2 shrink-0">
                 {room.room_number}
               </span>
@@ -287,6 +287,7 @@ function BedSelector({ properties, propertyId, roomId, bedId, onPropertyChange, 
 const emptyForm = {
   name: '', phone: '', propertyId: '', roomId: '', bedId: '',
   monthlyRent: '', joinDate: new Date().toISOString().slice(0, 10),
+  depositAmount: '',
 };
 
 function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onSubmit, onCancel, saving }) {
@@ -302,6 +303,7 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
         bedId: initialTenant.bedId ?? '',
         monthlyRent: initialTenant.monthlyRent,
         joinDate: initialTenant.joinDate,
+        depositAmount: initialTenant.depositAmount ?? '',
       });
     } else if (prefill) {
       setForm({ ...emptyForm, propertyId: prefill.propertyId ?? '', roomId: prefill.roomId ?? '', bedId: prefill.bedId ?? '' });
@@ -314,7 +316,11 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
 
   async function handleSubmit(e) {
     e.preventDefault();
-    await onSubmit({ ...form, monthlyRent: Number(form.monthlyRent) });
+    await onSubmit({
+      ...form,
+      monthlyRent: Number(form.monthlyRent),
+      depositAmount: Number(form.depositAmount || 0),
+    });
     if (!initialTenant) setForm({ ...emptyForm, propertyId: defaultPropertyId ?? '' });
   }
 
@@ -388,11 +394,22 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
           </label>
         </div>
 
+        <label className="block">
+          <Label>Security deposit <span className="text-slate2 font-normal">(0 if none)</span></Label>
+          <input
+            min="0"
+            type="number"
+            value={form.depositAmount}
+            onChange={e => set('depositAmount', e.target.value)}
+            className={inputCls}
+            placeholder="0"
+          />
+        </label>
+
         <Btn
           variant="primary"
           disabled={saving}
           className="w-full py-3 justify-center"
-          // override type to submit since Btn defaults to button
           onClick={undefined}
           {...{ type: 'submit' }}
         >
@@ -406,8 +423,12 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
 
 // ─── tenant card ─────────────────────────────────────────────────────────────
 
-function TenantCard({ tenant, onEdit, onDelete, onMarkPaid, onMarkUnpaid }) {
+function TenantCard({ tenant, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onReturnDeposit }) {
   const isPaid = tenant.paymentStatus === 'Paid';
+  const hasDeposit = tenant.depositAmount > 0;
+  const depositHeld = hasDeposit && tenant.depositStatus === 'held';
+  const depositReturned = hasDeposit && tenant.depositStatus === 'returned';
+
   return (
     <Card className="overflow-hidden">
       <div className="p-4">
@@ -433,6 +454,27 @@ function TenantCard({ tenant, onEdit, onDelete, onMarkPaid, onMarkUnpaid }) {
             <p className="mt-0.5 font-semibold tabular-nums">{fmt(tenant.monthlyRent)}</p>
           </div>
         </div>
+
+        {hasDeposit && (
+          <div className="mt-2 flex items-center justify-between rounded-lg border border-border px-3 py-2">
+            <div>
+              <Label>Deposit</Label>
+              <p className="mt-0.5 text-sm font-semibold tabular-nums">{fmt(tenant.depositAmount)}</p>
+            </div>
+            {depositHeld && (
+              <button
+                type="button"
+                onClick={() => onReturnDeposit(tenant)}
+                className="text-xs font-semibold text-amber hover:text-amber/80 border border-amber/30 rounded-lg px-2.5 py-1.5 hover:bg-amber/5 transition-colors"
+              >
+                Mark returned
+              </button>
+            )}
+            {depositReturned && (
+              <span className="text-xs font-semibold text-leaf">Returned</span>
+            )}
+          </div>
+        )}
 
         {tenant.paymentDate && (
           <p className="mt-2 text-xs text-slate2">Paid on {tenant.paymentDate}</p>
@@ -518,7 +560,7 @@ function DashboardPage({ tenants, totalBeds, selectedPropertyId, onGoToPayments 
   );
 }
 
-function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, saving, roomPrefill, onAddTenant, onUpdateTenant, onCancelEdit, onEdit, onDelete, onMarkPaid, onMarkUnpaid }) {
+function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, saving, roomPrefill, onAddTenant, onUpdateTenant, onCancelEdit, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onReturnDeposit }) {
   return (
     <div className="grid gap-4 lg:grid-cols-[380px_1fr]">
       <TenantForm
@@ -541,6 +583,7 @@ function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, sa
               onDelete={onDelete}
               onMarkPaid={onMarkPaid}
               onMarkUnpaid={onMarkUnpaid}
+              onReturnDeposit={onReturnDeposit}
             />
           ))
         }
@@ -552,13 +595,15 @@ function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, sa
 function PaymentsPage({ tenants, onMarkPaid, onMarkUnpaid }) {
   const unpaid = tenants.filter(t => t.paymentStatus === 'Unpaid');
   const pendingAmt = unpaid.reduce((s, t) => s + Number(t.monthlyRent || 0), 0);
+  const depositsHeld = tenants.reduce((s, t) => t.depositStatus === 'held' ? s + Number(t.depositAmount || 0) : s, 0);
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-3 gap-3">
-        <StatCard label="Paid"    value={tenants.length - unpaid.length} color="text-leaf" />
-        <StatCard label="Unpaid"  value={unpaid.length} color={unpaid.length > 0 ? 'text-coral' : 'text-leaf'} />
-        <StatCard label="Pending" value={fmt(pendingAmt)} color="text-amber" />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatCard label="Paid"          value={tenants.length - unpaid.length} color="text-leaf" />
+        <StatCard label="Unpaid"        value={unpaid.length} color={unpaid.length > 0 ? 'text-coral' : 'text-leaf'} />
+        <StatCard label="Pending"       value={fmt(pendingAmt)} color="text-amber" />
+        <StatCard label="Deposits held" value={fmt(depositsHeld)} color="text-ink" />
       </div>
 
       <Card className="overflow-hidden">
@@ -685,7 +730,13 @@ export default function App() {
     } catch (e) { setError(e.message); }
   }
 
-  // bottom nav height = 56px → pb-14 (3.5rem). Explicit, not a magic number.
+  async function handleReturnDeposit(tenant) {
+    try {
+      const u = await returnDeposit(tenant.id);
+      setTenants(cur => cur.map(t => t.id === tenant.id ? u : t));
+    } catch (e) { setError(e.message); }
+  }
+
   return (
     <div className="min-h-screen bg-mist pb-14 sm:pb-0">
       <Header
@@ -739,6 +790,7 @@ export default function App() {
                   onDelete={handleDelete}
                   onMarkPaid={t => patchPayment(t, 'Paid')}
                   onMarkUnpaid={t => patchPayment(t, 'Unpaid')}
+                  onReturnDeposit={handleReturnDeposit}
                 />
               )}
               {page === 'payments' && (

@@ -13,6 +13,8 @@ const starterTenants = [
     joinDate: '2026-05-01',
     paymentStatus: 'Paid',
     paymentDate: '2026-06-03',
+    depositAmount: 6500,
+    depositStatus: 'held',
   },
   {
     id: 'sample-2',
@@ -24,6 +26,8 @@ const starterTenants = [
     joinDate: '2026-04-18',
     paymentStatus: 'Unpaid',
     paymentDate: '',
+    depositAmount: 0,
+    depositStatus: 'none',
   },
 ];
 
@@ -55,6 +59,8 @@ function toUiTenant(occupancy) {
     joinDate: occupancy.tenant.join_date,
     paymentStatus: occupancy.payment_status,
     paymentDate: occupancy.payment_date ?? '',
+    depositAmount: Number(occupancy.deposit_amount ?? 0),
+    depositStatus: occupancy.deposit_status ?? 'none',
   };
 }
 
@@ -109,7 +115,6 @@ export async function createTenant(tenant) {
     return newTenant;
   }
 
-  // Get organization_id from property
   const { data: property, error: propError } = await supabase
     .from('properties')
     .select('id, organization_id')
@@ -131,6 +136,8 @@ export async function createTenant(tenant) {
     .single();
   if (tenantError) throw tenantError;
 
+  const depositAmt = tenant.depositAmount ?? 0;
+
   const { data: occupancy, error: occupancyError } = await supabase
     .from('occupancies')
     .insert({
@@ -143,6 +150,8 @@ export async function createTenant(tenant) {
       payment_date: tenant.paymentDate || null,
       start_date: tenant.joinDate,
       status: 'active',
+      deposit_amount: depositAmt,
+      deposit_status: depositAmt > 0 ? 'held' : 'none',
     })
     .select(`
       *,
@@ -178,8 +187,9 @@ export async function updateTenant(id, patch) {
   if (patch.monthlyRent !== undefined) occupancyPatch.monthly_rent = patch.monthlyRent;
   if (patch.paymentStatus !== undefined) occupancyPatch.payment_status = patch.paymentStatus;
   if (patch.paymentDate !== undefined) occupancyPatch.payment_date = patch.paymentDate || null;
+  if (patch.depositAmount !== undefined) occupancyPatch.deposit_amount = patch.depositAmount;
+  if (patch.depositStatus !== undefined) occupancyPatch.deposit_status = patch.depositStatus;
 
-  // If bed changed
   if (patch.bedId && patch.bedId !== currentOccupancy.bed_id) {
     occupancyPatch.room_id = patch.roomId;
     occupancyPatch.bed_id = patch.bedId;
@@ -201,6 +211,10 @@ export async function updateTenant(id, patch) {
   }
 
   return toUiTenant(await fetchOccupancyByTenantId(id));
+}
+
+export async function returnDeposit(id) {
+  return updateTenant(id, { depositStatus: 'returned' });
 }
 
 export async function deleteTenant(id) {
