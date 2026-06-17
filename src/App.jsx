@@ -3,14 +3,14 @@ import {
   BedDouble, CheckCircle2, ChevronDown, CreditCard,
   Home, Loader2, Pencil, Plus, Save, Trash2, Users, X,
 } from 'lucide-react';
-import { createTenant, deleteTenant, fetchTenants, returnDeposit, updateTenant } from './services/tenantService';
+import { createTenant, deleteTenant, fetchTenants, forfeitDeposit, returnDeposit, updateTenant } from './services/tenantService';
 import { fetchProperties, fetchRoomsWithBeds } from './services/propertyService';
 import { hasSupabaseConfig } from './lib/supabase';
 import RoomsPage from './RoomsPage';
 import {
   fmt, Label, Card, SectionHeader, Btn, IconBtn,
   StatusBadge, PaymentToggleBtn, WhatsAppLink,
-  PageLoader, InlineLoader, StatCard,
+  PageLoader, InlineLoader, StatCard, ConfirmInline,
 } from './components/ui';
 
 // ─── stat strip ──────────────────────────────────────────────────────────────
@@ -423,11 +423,13 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
 
 // ─── tenant card ─────────────────────────────────────────────────────────────
 
-function TenantCard({ tenant, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onReturnDeposit }) {
+function TenantCard({ tenant, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onReturnDeposit, onForfeitDeposit }) {
   const isPaid = tenant.paymentStatus === 'Paid';
   const hasDeposit = tenant.depositAmount > 0;
   const depositHeld = hasDeposit && tenant.depositStatus === 'held';
   const depositReturned = hasDeposit && tenant.depositStatus === 'returned';
+  const depositForfeited = hasDeposit && tenant.depositStatus === 'forfeited';
+  const [confirmingForfeit, setConfirmingForfeit] = useState(false);
 
   return (
     <Card className="overflow-hidden">
@@ -456,24 +458,47 @@ function TenantCard({ tenant, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onRetu
         </div>
 
         {hasDeposit && (
-          <div className="mt-2 flex items-center justify-between rounded-lg border border-border px-3 py-2">
-            <div>
-              <Label>Deposit</Label>
-              <p className="mt-0.5 text-sm font-semibold tabular-nums">{fmt(tenant.depositAmount)}</p>
+          confirmingForfeit ? (
+            <div className="mt-2 rounded-lg overflow-hidden">
+              <ConfirmInline
+                message={<>Forfeit {fmt(tenant.depositAmount)} deposit for <span className="font-semibold">{tenant.name}</span>? This cannot be undone.</>}
+                confirmLabel="Yes, forfeit"
+                onCancel={() => setConfirmingForfeit(false)}
+                onConfirm={() => { onForfeitDeposit(tenant); setConfirmingForfeit(false); }}
+              />
             </div>
-            {depositHeld && (
-              <button
-                type="button"
-                onClick={() => onReturnDeposit(tenant)}
-                className="text-xs font-semibold text-amber hover:text-amber/80 border border-amber/30 rounded-lg px-2.5 py-1.5 hover:bg-amber/5 transition-colors"
-              >
-                Mark returned
-              </button>
-            )}
-            {depositReturned && (
-              <span className="text-xs font-semibold text-leaf">Returned</span>
-            )}
-          </div>
+          ) : (
+            <div className="mt-2 flex items-center justify-between rounded-lg border border-border px-3 py-2">
+              <div>
+                <Label>Deposit</Label>
+                <p className="mt-0.5 text-sm font-semibold tabular-nums">{fmt(tenant.depositAmount)}</p>
+              </div>
+              {depositHeld && (
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => onReturnDeposit(tenant)}
+                    className="text-xs font-semibold text-amber hover:text-amber/80 border border-amber/30 rounded-lg px-2.5 py-1.5 hover:bg-amber/5 transition-colors"
+                  >
+                    Mark returned
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingForfeit(true)}
+                    className="text-xs font-semibold text-coral hover:text-coral/80 border border-coral/30 rounded-lg px-2.5 py-1.5 hover:bg-coral/5 transition-colors"
+                  >
+                    Mark forfeited
+                  </button>
+                </div>
+              )}
+              {depositReturned && (
+                <span className="text-xs font-semibold text-leaf">Returned</span>
+              )}
+              {depositForfeited && (
+                <span className="text-xs font-semibold text-coral">Forfeited</span>
+              )}
+            </div>
+          )
         )}
 
         {tenant.paymentDate && (
@@ -560,7 +585,7 @@ function DashboardPage({ tenants, totalBeds, selectedPropertyId, onGoToPayments 
   );
 }
 
-function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, saving, roomPrefill, onAddTenant, onUpdateTenant, onCancelEdit, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onReturnDeposit }) {
+function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, saving, roomPrefill, onAddTenant, onUpdateTenant, onCancelEdit, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onReturnDeposit, onForfeitDeposit }) {
   return (
     <div className="grid gap-4 lg:grid-cols-[380px_1fr]">
       <TenantForm
@@ -584,6 +609,7 @@ function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, sa
               onMarkPaid={onMarkPaid}
               onMarkUnpaid={onMarkUnpaid}
               onReturnDeposit={onReturnDeposit}
+              onForfeitDeposit={onForfeitDeposit}
             />
           ))
         }
@@ -737,6 +763,13 @@ export default function App() {
     } catch (e) { setError(e.message); }
   }
 
+  async function handleForfeitDeposit(tenant) {
+    try {
+      const u = await forfeitDeposit(tenant.id);
+      setTenants(cur => cur.map(t => t.id === tenant.id ? u : t));
+    } catch (e) { setError(e.message); }
+  }
+
   return (
     <div className="min-h-screen bg-mist pb-14 sm:pb-0">
       <Header
@@ -791,6 +824,7 @@ export default function App() {
                   onMarkPaid={t => patchPayment(t, 'Paid')}
                   onMarkUnpaid={t => patchPayment(t, 'Unpaid')}
                   onReturnDeposit={handleReturnDeposit}
+                  onForfeitDeposit={handleForfeitDeposit}
                 />
               )}
               {page === 'payments' && (
