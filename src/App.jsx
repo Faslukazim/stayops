@@ -428,7 +428,7 @@ function TenantCard({ tenant, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onRetu
   const hasDeposit = tenant.depositAmount > 0;
   const depositHeld = hasDeposit && tenant.depositStatus === 'held';
   const depositReturned = hasDeposit && tenant.depositStatus === 'returned';
-  const depositForfeited = hasDeposit && tenant.depositStatus === 'forfeited';
+  const depositForfeited = hasDeposit && tenant.depositStatus === 'Deposit Not Refundable';
   const [confirmingForfeit, setConfirmingForfeit] = useState(false);
 
   return (
@@ -487,7 +487,7 @@ function TenantCard({ tenant, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onRetu
                     onClick={() => setConfirmingForfeit(true)}
                     className="text-xs font-semibold text-coral hover:text-coral/80 border border-coral/30 rounded-lg px-2.5 py-1.5 hover:bg-coral/5 transition-colors"
                   >
-                    Mark forfeited
+                    Mark Deposit Not Refundable
                   </button>
                 </div>
               )}
@@ -495,7 +495,7 @@ function TenantCard({ tenant, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onRetu
                 <span className="text-xs font-semibold text-leaf">Returned</span>
               )}
               {depositForfeited && (
-                <span className="text-xs font-semibold text-coral">Forfeited</span>
+                <span className="text-xs font-semibold text-coral">Deposit Not Refundable</span>
               )}
             </div>
           )

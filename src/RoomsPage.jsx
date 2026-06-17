@@ -47,7 +47,7 @@ function RoomCard({ room, isSelected, onClick }) {
       onClick={onClick}
       className={`w-full text-left rounded-xl border p-4 transition-all active:scale-[0.98] ${
         isSelected
-          ? 'border-ink bg-ink text-white shadow-lift'
+  ? 'border-leaf bg-ink text-white shadow-lift ring-2 ring-leaf/20'
           : 'border-border bg-white hover:border-slate2 shadow-card'
       }`}
     >
@@ -63,17 +63,17 @@ function RoomCard({ room, isSelected, onClick }) {
         )}
       </div>
 
-      <p className={`mt-1 text-xs tabular-nums ${isSelected ? 'text-white/70' : 'text-slate2'}`}>
-  {occupied}/{capacity} occupied · {capacity - occupied} vacant
+      <p className={`mt-1 text-xs ${isSelected ? 'text-white/70' : 'text-slate2'}`}>
+  {occupied} Occupied • {capacity - occupied} Vacant
 </p>
 
 <OccBar occupied={occupied} capacity={capacity} />
 
-<div className="mt-3 flex gap-1">
+<div className="mt-3 flex gap-2">
   {Array.from({ length: capacity }).map((_, i) => (
     <div
       key={i}
-      className={`h-3 w-3 rounded-sm ${
+      className={`h-4 w-4 rounded ${
         i < occupied
           ? isSelected
             ? 'bg-white'
@@ -220,7 +220,7 @@ function RoomDetail({ room, onClose, onAssign, onRoomUpdate }) {
             <h2 className="font-bold text-ink text-lg">Room {room.room_number}</h2>
           </div>
           <p className="mt-0.5 text-sm text-slate2 tabular-nums">
-  {occupied}/{capacity} occupied · {capacity - occupied} vacant
+  {occupied} occupied • {capacity - occupied} vacant • {Math.round((occupied / capacity) * 100)}% occupancy
   {revenue > 0 && ` · ${fmt(revenue)}/mo`}
   {unpaid > 0 && (
     <> · <span className="text-coral">{fmt(pendingAmt)} unpaid</span></>
@@ -236,9 +236,7 @@ function RoomDetail({ room, onClose, onAssign, onRoomUpdate }) {
               Assign bed
             </Btn>
           )}
-          <IconBtn variant="ghost" onClick={onClose} className="hidden sm:flex">
-            <X className="h-4 w-4" />
-          </IconBtn>
+          
         </div>
       </div>
 
@@ -302,12 +300,16 @@ async function load() {
 
     setRooms(data);
 
-    if (selectedRoom) {
-      const refreshed = data.find(r => r.id === selectedRoom.id);
-      setSelectedRoom(refreshed ?? data[0] ?? null);
-    } else {
-      setSelectedRoom(data[0] ?? null);
-    }
+    // const isMobile = window.innerWidth < 640;
+
+const isMobile = window.innerWidth < 640;
+
+if (selectedRoom) {
+  const refreshed = data.find(r => r.id === selectedRoom.id);
+  setSelectedRoom(refreshed ?? null);
+} else if (!isMobile) {
+  setSelectedRoom(data[0] ?? null);
+}
   } catch (e) {
     setError(e.message);
   } finally {
@@ -351,13 +353,18 @@ async function load() {
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-4">
       <StatCard label="Total rooms"     value={rooms.length}        color="text-ink" />
       <StatCard label="Occupied beds"   value={`${stats.occupied}/${stats.totalBeds}`} color="text-leaf" />
-      <StatCard label="Empty rooms"     value={stats.emptyRooms}    color={stats.emptyRooms > 0 ? 'text-amber' : 'text-leaf'} />
-      <StatCard label="Rooms w/ unpaid" value={stats.unpaidRooms}   color={stats.unpaidRooms > 0 ? 'text-coral' : 'text-leaf'} />
+<StatCard
+  label="Vacant beds"
+  value={stats.totalBeds - stats.occupied}
+  color={(stats.totalBeds - stats.occupied) > 0 ? 'text-amber' : 'text-leaf'}
+/>      <StatCard label="Rooms w/ unpaid" value={stats.unpaidRooms}   color={stats.unpaidRooms > 0 ? 'text-coral' : 'text-leaf'} />
     </div>
   );
 
-  // Mobile: full-screen detail view
-  if (selectedRoom) {
+ const isMobile = window.innerWidth < 640;
+
+// Mobile: full-screen detail view
+if (selectedRoom && isMobile) {
     return (
       <div className="sm:hidden flex flex-col" style={{ minHeight: 'calc(100vh - 160px)' }}>
         <Card className="flex-1 rounded-xl overflow-hidden">

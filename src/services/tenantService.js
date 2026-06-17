@@ -218,7 +218,7 @@ export async function returnDeposit(id) {
 }
 
 export async function forfeitDeposit(id) {
-  return updateTenant(id, { depositStatus: 'forfeited' });
+  return updateTenant(id, { depositStatus: 'Deposit Not Refundable' });
 }
 
 export async function deleteTenant(id) {
