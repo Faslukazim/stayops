@@ -221,6 +221,10 @@ export async function forfeitDeposit(id) {
   return updateTenant(id, { depositStatus: 'forfeited' });
 }
 
+export async function moveTenant(tenantId, { roomId, bedId }) {
+  return updateTenant(tenantId, { roomId, bedId });
+}
+
 export async function deleteTenant(id) {
   if (!hasSupabaseConfig) {
     writeLocalTenants(readLocalTenants().filter((t) => t.id !== id));

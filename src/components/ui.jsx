@@ -185,6 +185,20 @@ export function StatCard({ label, value, sub, color = 'text-ink' }) {
   );
 }
 
+// ─── EmptyState ───────────────────────────────────────────────────────────────
+// Consistent empty state. icon, title required. body and action optional.
+
+export function EmptyState({ icon: Icon, title, body, action }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 px-6 text-center gap-2">
+      {Icon && <Icon className="h-7 w-7 text-slate2/30 mb-1" />}
+      <p className="text-sm font-semibold text-ink">{title}</p>
+      {body && <p className="text-sm text-slate2">{body}</p>}
+      {action && <div className="mt-2">{action}</div>}
+    </div>
+  );
+}
+
 // ─── StatStrip ────────────────────────────────────────────────────────────────
 // One card, divided grid. Use instead of multiple StatCards in a row.
 // Pass stats as array: [{ label, value, sub?, color? }]

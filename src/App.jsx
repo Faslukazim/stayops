@@ -5,13 +5,14 @@ import {
 } from 'lucide-react';
 import { createTenant, deleteTenant, fetchTenants, forfeitDeposit, returnDeposit, updateTenant } from './services/tenantService';
 import { ensurePaymentRecords, fetchPaymentRecords, markRecordPaid, markRecordUnpaid } from './services/paymentService';
+import { logActivity, fetchRecentActivity } from './services/activityService';
 import { fetchProperties, fetchRoomsWithBeds } from './services/propertyService';
 import { hasSupabaseConfig } from './lib/supabase';
 import RoomsPage from './RoomsPage';
 import {
   fmt, Label, Card, SectionHeader, Btn, IconBtn,
   StatusBadge, PaymentToggleBtn, WhatsAppLink,
-  PageLoader, StatCard, StatStrip, ConfirmInline,
+  PageLoader, StatCard, StatStrip, ConfirmInline, EmptyState,
 } from './components/ui';
 
 
@@ -624,44 +625,29 @@ function QuickActions({ onAssignTenant, onAddTenant, onOpenRooms, onOpenPayments
   );
 }
 
-// ─── dashboard: property snapshot ────────────────────────────────────────────
-// Rooms, beds, and how full the property is — read-only context, no charts.
+// ─── dashboard: recent activity ──────────────────────────────────────────────
 
-function PropertySnapshot({ tenants, totalBeds, selectedPropertyId }) {
-  const [rooms, setRooms] = useState([]);
-  const [loadingRooms, setLoadingRooms] = useState(false);
+function relativeTime(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
-  useEffect(() => {
-    if (!selectedPropertyId || !hasSupabaseConfig) { setRooms([]); return; }
-    setLoadingRooms(true);
-    fetchRoomsWithBeds(selectedPropertyId)
-      .then(setRooms)
-      .finally(() => setLoadingRooms(false));
-  }, [selectedPropertyId]);
-
-  const occupied = tenants.length;
-  const vacant = Math.max(totalBeds - occupied, 0);
-  const pct = totalBeds ? Math.round((occupied / totalBeds) * 100) : 0;
-  const roomCount = selectedPropertyId ? (loadingRooms ? '…' : rooms.length) : '—';
-
-  const stats = [
-    { label: 'Rooms',     value: roomCount },
-    { label: 'Beds',      value: totalBeds },
-    { label: 'Occupied',  value: occupied, color: 'text-leaf' },
-    { label: 'Vacant',    value: vacant, color: vacant > 0 ? 'text-amber' : 'text-leaf' },
-    { label: 'Occupancy', value: `${pct}%` },
-  ];
-
+function RecentActivity({ propertyId }) {
+  const events = fetchRecentActivity(propertyId);
+  if (events.length === 0) return null;
   return (
     <Card className="overflow-hidden">
-      <SectionHeader title="Property Snapshot" />
-      <div className="grid grid-cols-3 gap-3 p-4 sm:grid-cols-5">
-        {stats.map(s => (
-          <div key={s.label}>
-            <Label>{s.label}</Label>
-            <p className={`mt-1 text-lg font-bold tabular-nums ${s.color ?? 'text-ink'}`}>
-              {s.value}
-            </p>
+      <SectionHeader title="Recent Activity" />
+      <div className="divide-y divide-border">
+        {events.map(e => (
+          <div key={e.id} className="flex items-center gap-3 px-4 py-2.5">
+            <p className="text-sm text-ink flex-1 min-w-0 truncate">{e.description}</p>
+            <p className="text-[11px] text-slate2 shrink-0 tabular-nums">{relativeTime(e.at)}</p>
           </div>
         ))}
       </div>
@@ -680,11 +666,7 @@ function DashboardPage({ tenants, totalBeds, selectedPropertyId, onGoToPayments,
         onOpenRooms={onGoToRooms}
         onOpenPayments={onGoToPayments}
       />
-      <PropertySnapshot
-        tenants={tenants}
-        totalBeds={totalBeds}
-        selectedPropertyId={selectedPropertyId}
-      />
+      <RecentActivity propertyId={selectedPropertyId} />
     </div>
   );
 }
@@ -737,9 +719,9 @@ function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, sa
         </div>
 
         {tenants.length === 0 ? (
-          <Card className="p-8 text-center text-sm text-slate2">No tenants yet.</Card>
+          <Card><EmptyState icon={Users} title="No tenants yet" body="Add your first tenant using the form on the left." /></Card>
         ) : filtered.length === 0 ? (
-          <Card className="p-8 text-center text-sm text-slate2">No tenants match "{query}".</Card>
+          <Card><EmptyState icon={Users} title={`No results for "${query}"`} body="Try a different name, phone number, or room." /></Card>
         ) : (
           <>
             {query && (
@@ -862,7 +844,7 @@ function PaymentsPage({ selectedPropertyId }) {
             <Loader2 className="h-5 w-5 animate-spin text-slate2" />
           </div>
         ) : records.length === 0 ? (
-          <p className="px-4 py-6 text-sm text-slate2">No active tenants for this month.</p>
+          <EmptyState icon={CreditCard} title="No records for this month" body="Records are created automatically when tenants are active." />
         ) : (
           <div className="divide-y divide-border">
             {records.map(r => {
@@ -956,6 +938,7 @@ export default function App() {
     try {
       const c = await createTenant({ ...tenant, paymentStatus: 'Unpaid', paymentDate: '' });
       setTenants(cur => [c, ...cur]);
+      logActivity(selectedPropertyId, 'tenant_assigned', `${c.name} assigned to Room ${c.roomNumber} Bed ${c.bedNumber}`);
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
   }
@@ -976,6 +959,7 @@ export default function App() {
       await deleteTenant(tenant.id);
       setTenants(cur => cur.filter(t => t.id !== tenant.id));
       if (editingTenant?.id === tenant.id) setEditingTenant(null);
+      logActivity(selectedPropertyId, 'tenant_vacated', `${tenant.name} vacated Room ${tenant.roomNumber} Bed ${tenant.bedNumber}`);
     } catch (e) { setError(e.message); }
   }
 
@@ -986,6 +970,8 @@ export default function App() {
         paymentDate: status === 'Paid' ? new Date().toISOString().slice(0, 10) : '',
       });
       setTenants(cur => cur.map(t => t.id === tenant.id ? u : t));
+      logActivity(selectedPropertyId, status === 'Paid' ? 'payment_paid' : 'payment_unpaid',
+        `${tenant.name} marked ${status.toLowerCase()} — Room ${tenant.roomNumber}`);
     } catch (e) { setError(e.message); }
   }
 
@@ -993,6 +979,7 @@ export default function App() {
     try {
       const u = await returnDeposit(tenant.id);
       setTenants(cur => cur.map(t => t.id === tenant.id ? u : t));
+      logActivity(selectedPropertyId, 'deposit_returned', `${tenant.name} deposit returned`);
     } catch (e) { setError(e.message); }
   }
 
@@ -1000,6 +987,7 @@ export default function App() {
     try {
       const u = await forfeitDeposit(tenant.id);
       setTenants(cur => cur.map(t => t.id === tenant.id ? u : t));
+      logActivity(selectedPropertyId, 'deposit_forfeited', `${tenant.name} deposit marked not refundable`);
     } catch (e) { setError(e.message); }
   }
 
