@@ -403,7 +403,7 @@ function TenantCard({ tenant, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onRetu
                     onClick={() => onReturnDeposit(tenant)}
                     className="text-xs font-semibold text-amber hover:text-amber/80 border border-amber/30 rounded-lg px-2.5 py-1.5 hover:bg-amber/5 transition-colors"
                   >
-                    Mark returned
+                    Return Deposit
                   </button>
                   <button
                     type="button"
