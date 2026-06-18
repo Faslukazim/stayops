@@ -250,7 +250,7 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
 
   return (
     <Card className="overflow-hidden">
-      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
         <h2 className="font-semibold text-ink">{initialTenant ? 'Edit tenant' : 'Add tenant'}</h2>
         {initialTenant
           ? <IconBtn variant="ghost" onClick={onCancel}><X className="h-4 w-4" /></IconBtn>
@@ -384,8 +384,8 @@ function TenantCard({ tenant, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onRetu
           confirmingForfeit ? (
             <div className="mt-2 rounded-lg overflow-hidden">
               <ConfirmInline
-                message={<>Cancel {fmt(tenant.depositAmount)} deposit for <span className="font-semibold">{tenant.name}</span>? This cannot be undone.</>}
-                confirmLabel="Yes, Cancel"
+                message={<>Mark {fmt(tenant.depositAmount)} deposit as not refundable for <span className="font-semibold">{tenant.name}</span>?</>}
+                confirmLabel="Confirm"
                 onCancel={() => setConfirmingForfeit(false)}
                 onConfirm={() => { onForfeitDeposit(tenant); setConfirmingForfeit(false); }}
               />
@@ -410,7 +410,7 @@ function TenantCard({ tenant, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onRetu
                     onClick={() => setConfirmingForfeit(true)}
                     className="text-xs font-semibold text-coral hover:text-coral/80 border border-coral/30 rounded-lg px-2.5 py-1.5 hover:bg-coral/5 transition-colors"
                   >
-                    Mark Deposit Not Refundable
+                    Not Refundable
                   </button>
                 </div>
               )}
@@ -531,7 +531,7 @@ function AttentionRequired({ tenants }) {
             onClick={() => setRemindExpanded(v => !v)}
           >
             <MessageCircle className="h-3.5 w-3.5" />
-            {remindExpanded ? 'Done' : `Remind All (${unpaid.length})`}
+            {remindExpanded ? 'Close' : `Remind All (${unpaid.length})`}
           </Btn>
         )}
       />
@@ -563,9 +563,7 @@ function AttentionRequired({ tenants }) {
       )}
 
       {unpaid.length === 0 ? (
-        <p className="px-4 py-6 text-sm text-slate2">
-          All tenants are paid up. Nothing needs attention.
-        </p>
+        <EmptyState icon={CheckCircle2} title="All paid up" body="Nothing needs attention right now." />
       ) : (
         <div className="divide-y divide-border">
           {unpaid.map(t => (
@@ -614,7 +612,7 @@ function QuickActions({ onAssignTenant, onAddTenant, onOpenRooms, onOpenPayments
             key={a.label}
             type="button"
             onClick={a.onClick}
-            className="flex flex-col items-center gap-1.5 rounded-lg border border-border py-3.5 text-xs font-semibold text-ink transition-all hover:bg-mist active:scale-95"
+            className="flex flex-col items-center gap-1.5 rounded-lg py-3.5 text-xs font-semibold text-ink transition-all hover:bg-mist active:scale-95"
           >
             <a.icon className="h-5 w-5 text-slate2" />
             {a.label}
@@ -637,6 +635,16 @@ function relativeTime(iso) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
+const ACTIVITY_DOT = {
+  tenant_assigned: 'bg-leaf',
+  tenant_moved:    'bg-amber',
+  tenant_vacated:  'bg-coral',
+  payment_paid:    'bg-leaf',
+  payment_unpaid:  'bg-coral',
+  deposit_returned:'bg-leaf',
+  deposit_forfeited:'bg-coral',
+};
+
 function RecentActivity({ propertyId }) {
   const events = fetchRecentActivity(propertyId);
   if (events.length === 0) return null;
@@ -646,6 +654,7 @@ function RecentActivity({ propertyId }) {
       <div className="divide-y divide-border">
         {events.map(e => (
           <div key={e.id} className="flex items-center gap-3 px-4 py-2.5">
+            <span className={`h-2 w-2 rounded-full shrink-0 ${ACTIVITY_DOT[e.type] ?? 'bg-slate2/40'}`} />
             <p className="text-sm text-ink flex-1 min-w-0 truncate">{e.description}</p>
             <p className="text-[11px] text-slate2 shrink-0 tabular-nums">{relativeTime(e.at)}</p>
           </div>
@@ -810,18 +819,11 @@ function PaymentsPage({ selectedPropertyId }) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between px-1">
-        <button type="button" onClick={prevMonth} className="rounded-lg p-2 text-slate2 hover:bg-mist hover:text-ink transition-colors">
-          <ChevronLeft className="h-5 w-5" />
-        </button>
+        <IconBtn onClick={prevMonth}><ChevronLeft className="h-5 w-5" /></IconBtn>
         <span className="font-semibold text-ink">{monthLabel}</span>
-        <button
-          type="button"
-          onClick={nextMonth}
-          disabled={yearMonth >= currentYM}
-          className="rounded-lg p-2 text-slate2 hover:bg-mist hover:text-ink transition-colors disabled:opacity-30 disabled:pointer-events-none"
-        >
+        <IconBtn onClick={nextMonth} disabled={yearMonth >= currentYM} className="disabled:opacity-30 disabled:pointer-events-none">
           <ChevronRight className="h-5 w-5" />
-        </button>
+        </IconBtn>
       </div>
 
       <StatStrip stats={[
