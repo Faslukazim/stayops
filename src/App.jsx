@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  BedDouble, CheckCircle2, ChevronDown, CreditCard,
+  BedDouble, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, CreditCard,
   Home, Loader2, MessageCircle, Pencil, Plus, Save, Trash2, UserPlus, Users, X,
 } from 'lucide-react';
 import { createTenant, deleteTenant, fetchTenants, forfeitDeposit, returnDeposit, updateTenant } from './services/tenantService';
+import { ensurePaymentRecords, fetchPaymentRecords, markRecordPaid, markRecordUnpaid } from './services/paymentService';
 import { fetchProperties, fetchRoomsWithBeds } from './services/propertyService';
 import { hasSupabaseConfig } from './lib/supabase';
 import RoomsPage from './RoomsPage';
@@ -747,58 +748,145 @@ function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, sa
   );
 }
 
-function PaymentsPage({ tenants, onMarkPaid, onMarkUnpaid }) {
-  const unpaid = tenants.filter(t => t.paymentStatus === 'Unpaid');
-  const pendingAmt = unpaid.reduce((s, t) => s + Number(t.monthlyRent || 0), 0);
-  const depositsHeld = tenants.reduce((s, t) => t.depositStatus === 'held' ? s + Number(t.depositAmount || 0) : s, 0);
+function PaymentsPage({ selectedPropertyId }) {
+  const now = new Date();
+  const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  const [yearMonth, setYearMonth] = useState(currentYM);
+  const [records, setRecords] = useState([]);
+  const [loadingRecords, setLoadingRecords] = useState(false);
+  const [recordError, setRecordError] = useState('');
+
+  useEffect(() => {
+    if (!selectedPropertyId) return;
+    setLoadingRecords(true);
+    setRecordError('');
+    ensurePaymentRecords(selectedPropertyId, yearMonth)
+      .then(() => fetchPaymentRecords(selectedPropertyId, yearMonth))
+      .then(setRecords)
+      .catch(e => setRecordError(e.message))
+      .finally(() => setLoadingRecords(false));
+  }, [selectedPropertyId, yearMonth]);
+
+  function prevMonth() {
+    const [y, m] = yearMonth.split('-').map(Number);
+    const d = new Date(y, m - 2);
+    setYearMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+  function nextMonth() {
+    if (yearMonth >= currentYM) return;
+    const [y, m] = yearMonth.split('-').map(Number);
+    const d = new Date(y, m);
+    setYearMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+  }
+
+  const today = now.getDate();
+  const isCurrentMonth = yearMonth === currentYM;
+
+  function isOverdue(r) {
+    if (r.status === 'paid') return false;
+    return isCurrentMonth ? today > r.dueDay : true;
+  }
+  function daysOverdueLabel(r) {
+    if (!isCurrentMonth) return 'Overdue';
+    const d = today - r.dueDay;
+    return d === 1 ? '1 day overdue' : `${d} days overdue`;
+  }
+
+  const paid = records.filter(r => r.status === 'paid').length;
+  const unpaid = records.filter(r => r.status === 'unpaid').length;
+  const overdue = records.filter(r => isOverdue(r)).length;
+  const pendingAmt = records.filter(r => r.status === 'unpaid').reduce((s, r) => s + r.amount, 0);
+
+  const monthLabel = new Date(yearMonth + '-02').toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+
+  async function handleMarkPaid(r) {
+    await markRecordPaid(r.id);
+    setRecords(rs => rs.map(x => x.id === r.id ? { ...x, status: 'paid', paidAt: new Date().toISOString() } : x));
+  }
+  async function handleMarkUnpaid(r) {
+    await markRecordUnpaid(r.id);
+    setRecords(rs => rs.map(x => x.id === r.id ? { ...x, status: 'unpaid', paidAt: null } : x));
+  }
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Paid"          value={tenants.length - unpaid.length} color="text-leaf" />
-        <StatCard label="Unpaid"        value={unpaid.length} color={unpaid.length > 0 ? 'text-coral' : 'text-leaf'} />
-        <StatCard label="Pending"       value={fmt(pendingAmt)} color="text-amber" />
-        <StatCard label="Deposits held" value={fmt(depositsHeld)} color="text-ink" />
+      <div className="flex items-center justify-between px-1">
+        <button type="button" onClick={prevMonth} className="rounded-lg p-2 text-slate2 hover:bg-mist hover:text-ink transition-colors">
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+        <span className="font-semibold text-ink">{monthLabel}</span>
+        <button
+          type="button"
+          onClick={nextMonth}
+          disabled={yearMonth >= currentYM}
+          className="rounded-lg p-2 text-slate2 hover:bg-mist hover:text-ink transition-colors disabled:opacity-30 disabled:pointer-events-none"
+        >
+          <ChevronRight className="h-5 w-5" />
+        </button>
       </div>
 
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <StatCard label="Paid"    value={paid}          color="text-leaf" />
+        <StatCard label="Unpaid"  value={unpaid}        color={unpaid > 0 ? 'text-coral' : 'text-leaf'} />
+        <StatCard label="Overdue" value={overdue}       color={overdue > 0 ? 'text-coral' : 'text-leaf'} />
+        <StatCard label="Pending" value={fmt(pendingAmt)} color="text-amber" />
+      </div>
+
+      {recordError && (
+        <div className="rounded-lg border border-coral/30 bg-coral/5 px-4 py-3 text-sm text-coral">
+          {recordError}
+        </div>
+      )}
+
       <Card className="overflow-hidden">
-        <SectionHeader title="All tenants" />
-        <div className="divide-y divide-border">
-          {tenants.length === 0
-            ? <p className="px-4 py-6 text-sm text-slate2">No payment records yet.</p>
-            : tenants.map(t => {
-              const isPaid = t.paymentStatus === 'Paid';
+        <SectionHeader title="Payment records" />
+        {loadingRecords ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-5 w-5 animate-spin text-slate2" />
+          </div>
+        ) : records.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-slate2">No active tenants for this month.</p>
+        ) : (
+          <div className="divide-y divide-border">
+            {records.map(r => {
+              const overdue = isOverdue(r);
               return (
-                <div key={t.id} className="flex items-center gap-3 px-4 py-3">
+                <div key={r.id} className="flex items-center gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-ink truncate">{t.name}</p>
+                    <p className="text-sm font-semibold text-ink truncate">{r.name}</p>
                     <p className="text-xs text-slate2 tabular-nums">
-                      Room {t.roomNumber} · Bed {t.bedNumber} · {fmt(t.monthlyRent)}
+                      Room {r.roomNumber} · Bed {r.bedNumber} · {fmt(r.amount)}
                     </p>
-                    {t.paymentDate && (
-                      <p className="text-xs text-slate2">Paid {t.paymentDate}</p>
+                    {overdue && (
+                      <p className="text-xs font-semibold text-coral">{daysOverdueLabel(r)}</p>
+                    )}
+                    {r.status === 'paid' && r.paidAt && (
+                      <p className="text-xs text-slate2">Paid {String(r.paidAt).slice(0, 10)}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <StatusBadge status={isPaid ? 'paid' : 'unpaid'} />
+                    <StatusBadge status={r.status === 'paid' ? 'paid' : 'unpaid'} />
                     <PaymentToggleBtn
-                      isPaid={isPaid}
-                      onMarkPaid={() => onMarkPaid(t)}
-                      onMarkUnpaid={() => onMarkUnpaid(t)}
+                      isPaid={r.status === 'paid'}
+                      onMarkPaid={() => handleMarkPaid(r)}
+                      onMarkUnpaid={() => handleMarkUnpaid(r)}
                     />
-                    <WhatsAppLink
-                      name={t.name}
-                      phone={t.phone}
-                      roomNumber={t.roomNumber}
-                      bedNumber={t.bedNumber}
-                      rent={t.monthlyRent}
-                    />
+                    {r.status === 'unpaid' && (
+                      <WhatsAppLink
+                        name={r.name}
+                        phone={r.phone}
+                        roomNumber={r.roomNumber}
+                        bedNumber={r.bedNumber}
+                        rent={r.amount}
+                      />
+                    )}
                   </div>
                 </div>
               );
-            })
-          }
-        </div>
+            })}
+          </div>
+        )}
       </Card>
     </div>
   );
@@ -964,11 +1052,7 @@ export default function App() {
                 />
               )}
               {page === 'payments' && (
-                <PaymentsPage
-                  tenants={tenants}
-                  onMarkPaid={t => patchPayment(t, 'Paid')}
-                  onMarkUnpaid={t => patchPayment(t, 'Unpaid')}
-                />
+                <PaymentsPage selectedPropertyId={selectedPropertyId} />
               )}
             </>
           )
