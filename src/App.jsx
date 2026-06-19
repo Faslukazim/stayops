@@ -910,9 +910,14 @@ function PaymentsPage({ selectedPropertyId }) {
 // ─── root ────────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const [page, setPage] = useState('dashboard');
+  const [page, setPage] = useState(() => {
+    const saved = localStorage.getItem('stayops_page');
+    return ['dashboard','rooms','tenants','payments'].includes(saved) ? saved : 'dashboard';
+  });
   const [properties, setProperties] = useState([]);
-  const [selectedPropertyId, setSelectedPropertyId] = useState('');
+  const [selectedPropertyId, setSelectedPropertyId] = useState(
+    () => localStorage.getItem('stayops_property') || ''
+  );
   const [loadingProperties, setLoadingProperties] = useState(true);
   const [tenants, setTenants] = useState([]);
   const [editingTenant, setEditingTenant] = useState(null);
@@ -929,7 +934,7 @@ export default function App() {
         if (data.length > 0) {
           const saved = localStorage.getItem('stayops_property');
           const valid = saved && data.find(p => p.id === saved);
-          setSelectedPropertyId(valid ? saved : data[0].id);
+          if (!valid) setSelectedPropertyId(data[0].id);
         }
       })
       .catch(e => setError(e.message))
@@ -938,12 +943,16 @@ export default function App() {
 
   useEffect(() => {
     if (selectedPropertyId) localStorage.setItem('stayops_property', selectedPropertyId);
-    setLoading(true);
+    setLoading(cur => cur); // keep existing spinner state; only show spinner if already loading
     fetchTenants(selectedPropertyId || null)
-      .then(setTenants)
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
+      .then(data => { setTenants(data); setLoading(false); })
+      .catch(e => { setError(e.message); setLoading(false); });
   }, [selectedPropertyId]);
+
+  function navigateTo(newPage) {
+    localStorage.setItem('stayops_page', newPage);
+    setPage(newPage);
+  }
 
   const totalBeds = useMemo(() => {
     if (selectedPropertyId) return properties.find(p => p.id === selectedPropertyId)?.total_beds ?? 0;
@@ -1016,7 +1025,7 @@ export default function App() {
         onPropertyChange={setSelectedPropertyId}
         loadingProperties={loadingProperties}
       />
-      <TopNav active={page} onChange={setPage} />
+      <TopNav active={page} onChange={navigateTo} />
 
       <main className="mx-auto max-w-5xl px-4 py-4 sm:px-6 sm:py-5">
         {error && (
@@ -1031,26 +1040,26 @@ export default function App() {
         {loading
           ? <PageLoader />
           : (
-            <>
+            <div key={page} className="page-enter">
               {page === 'dashboard' && (
                 <DashboardPage
                   tenants={tenants}
                   totalBeds={totalBeds}
                   selectedPropertyId={selectedPropertyId}
-                  onGoToPayments={() => setPage('payments')}
-                  onGoToRooms={() => setPage('rooms')}
-                  onAssignTenant={() => setPage('rooms')}
+                  onGoToPayments={() => navigateTo('payments')}
+                  onGoToRooms={() => navigateTo('rooms')}
+                  onAssignTenant={() => navigateTo('rooms')}
                   onAddTenant={() => {
                     setEditingTenant(null);
                     setRoomPrefill(null);
-                    setPage('tenants');
+                    navigateTo('tenants');
                   }}
                 />
               )}
               {page === 'rooms' && (
                 <RoomsPage
                   selectedPropertyId={selectedPropertyId}
-                  onAssignBed={prefill => { setRoomPrefill(prefill); setPage('tenants'); }}
+                  onAssignBed={prefill => { setRoomPrefill(prefill); navigateTo('tenants'); }}
                 />
               )}
               {page === 'tenants' && (
@@ -1064,7 +1073,7 @@ export default function App() {
                   onAddTenant={t => { handleAdd(t); setRoomPrefill(null); }}
                   onUpdateTenant={handleUpdate}
                   onCancelEdit={() => setEditingTenant(null)}
-                  onEdit={t => { setEditingTenant(t); setPage('tenants'); }}
+                  onEdit={t => { setEditingTenant(t); navigateTo('tenants'); }}
                   onDelete={handleDelete}
                   onMarkPaid={t => patchPayment(t, 'Paid')}
                   onMarkUnpaid={t => patchPayment(t, 'Unpaid')}
@@ -1075,12 +1084,12 @@ export default function App() {
               {page === 'payments' && (
                 <PaymentsPage selectedPropertyId={selectedPropertyId} />
               )}
-            </>
+            </div>
           )
         }
       </main>
 
-      <BottomNav active={page} onChange={setPage} />
+      <BottomNav active={page} onChange={navigateTo} />
     </div>
   );
 }
