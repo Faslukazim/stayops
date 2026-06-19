@@ -52,11 +52,12 @@ export function SectionHeader({ title, action }) {
 
 export function Btn({ children, className = '', variant = 'ghost', size = 'md', ...props }) {
   const variants = {
-    primary:   'bg-ink text-white hover:bg-ink/80',
-    secondary: 'border border-border text-slate2 hover:bg-mist hover:text-ink',
-    ghost:     'text-slate2 hover:bg-mist hover:text-ink',
-    danger:    'text-coral hover:bg-coral/10',
-    success:   'text-leaf hover:bg-leaf/10',
+    primary:        'bg-ink text-white hover:bg-ink/80',
+    secondary:      'border border-border text-slate2 hover:bg-mist hover:text-ink',
+    ghost:          'text-slate2 hover:bg-mist hover:text-ink',
+    danger:         'text-coral hover:bg-coral/10',
+    success:        'text-leaf hover:bg-leaf/10',
+    'filled-success': 'bg-leaf text-white hover:bg-leaf/90',
   };
   const sizes = {
     sm:   'px-2.5 py-1.5 text-xs',
@@ -229,7 +230,7 @@ export function ConfirmInline({ message, onConfirm, onCancel, confirmLabel = 'Co
       <p className="text-sm text-ink flex-1">{message}</p>
       <Btn variant="secondary" size="sm" onClick={onCancel}>Cancel</Btn>
       <Btn variant="danger" size="sm"
-        className="bg-coral text-white hover:bg-red-600"
+        className="bg-coral text-white hover:bg-coral/90"
         onClick={onConfirm}
       >
         {confirmLabel}

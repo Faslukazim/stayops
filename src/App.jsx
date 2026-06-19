@@ -11,8 +11,8 @@ import { hasSupabaseConfig } from './lib/supabase';
 import RoomsPage from './RoomsPage';
 import {
   fmt, Label, Card, SectionHeader, Btn, IconBtn,
-  StatusBadge, PaymentToggleBtn, WhatsAppLink,
-  PageLoader, StatCard, StatStrip, ConfirmInline, EmptyState,
+  StatusBadge, WhatsAppLink,
+  PageLoader, StatStrip, ConfirmInline, EmptyState,
 } from './components/ui';
 
 
@@ -103,11 +103,16 @@ function BottomNav({ active, onChange }) {
               key={p.id}
               type="button"
               onClick={() => onChange(p.id)}
-              className={`flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium tracking-normal transition-colors ${
+              className={`relative flex flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium tracking-normal transition-colors ${
                 isActive ? 'text-ink' : 'text-slate2'
               }`}
             >
-              <Icon className={`h-5 w-5 ${isActive ? 'stroke-[2.5]' : 'stroke-[1.5]'}`} />
+              {isActive && (
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 h-0.5 w-6 rounded-full bg-ink" />
+              )}
+              <div className={`rounded-xl p-1 transition-colors ${isActive ? 'bg-black/6' : ''}`}>
+                <Icon className={`h-5 w-5 ${isActive ? 'stroke-[2.5]' : 'stroke-[1.5]'}`} />
+              </div>
               {p.label}
             </button>
           );
@@ -444,33 +449,41 @@ function TenantCard({ tenant, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onRetu
         )}
       </div>
 
-      <div className="flex items-center justify-end gap-0.5 px-3 py-1.5 border-t border-border">
-        <IconBtn
-          variant="ghost"
-          onClick={() => onEdit(tenant)}
-          title="Edit"
-        >
-          <Pencil className="h-4 w-4" />
-        </IconBtn>
-        <PaymentToggleBtn
-          isPaid={isPaid}
-          onMarkPaid={() => onMarkPaid(tenant)}
-          onMarkUnpaid={() => onMarkUnpaid(tenant)}
-        />
-        <WhatsAppLink
-          name={tenant.name}
-          phone={tenant.phone}
-          roomNumber={tenant.roomNumber}
-          bedNumber={tenant.bedNumber}
-          rent={tenant.monthlyRent}
-        />
-        <IconBtn
-          variant="danger"
-          onClick={() => setConfirmingDelete(true)}
-          title="Remove tenant"
-        >
-          <Trash2 className="h-4 w-4" />
-        </IconBtn>
+      <div className="flex items-center justify-between gap-2 px-3 py-2 border-t border-border">
+        {isPaid ? (
+          <button
+            type="button"
+            onClick={() => onMarkUnpaid(tenant)}
+            className="flex items-center gap-1.5 text-xs text-slate2 hover:text-ink transition-colors py-1"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5 text-leaf" />
+            Paid · Undo
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onMarkPaid(tenant)}
+            className="flex items-center gap-1.5 rounded-lg bg-leaf px-3 py-1.5 text-sm font-semibold text-white hover:bg-leaf/90 active:scale-95 transition-all"
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Mark Paid
+          </button>
+        )}
+        <div className="flex items-center gap-0.5">
+          <WhatsAppLink
+            name={tenant.name}
+            phone={tenant.phone}
+            roomNumber={tenant.roomNumber}
+            bedNumber={tenant.bedNumber}
+            rent={tenant.monthlyRent}
+          />
+          <IconBtn variant="ghost" onClick={() => onEdit(tenant)} title="Edit">
+            <Pencil className="h-4 w-4" />
+          </IconBtn>
+          <IconBtn variant="danger" onClick={() => setConfirmingDelete(true)} title="Remove">
+            <Trash2 className="h-4 w-4" />
+          </IconBtn>
+        </div>
       </div>
 
       {confirmingDelete && (
@@ -531,7 +544,7 @@ function BusinessHealth({ tenants, totalBeds }) {
 // ─── dashboard: attention required ───────────────────────────────────────────
 // Unpaid tenants only — the people who need a nudge today.
 
-function AttentionRequired({ tenants }) {
+function AttentionRequired({ tenants, onMarkPaid }) {
   const unpaid = tenants.filter(t => t.paymentStatus === 'Unpaid');
   const [remindExpanded, setRemindExpanded] = useState(false);
 
@@ -585,12 +598,9 @@ function AttentionRequired({ tenants }) {
             <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
               <div className="min-w-0">
                 <p className="font-semibold text-ink truncate">{t.name}</p>
-                <p className="text-xs text-slate2">Room {t.roomNumber}</p>
+                <p className="text-xs text-slate2">Room {t.roomNumber} · {fmt(t.monthlyRent)}</p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
-                <span className="text-sm font-semibold text-coral tabular-nums">
-                  {fmt(t.monthlyRent)}
-                </span>
                 <WhatsAppLink
                   name={t.name}
                   phone={t.phone}
@@ -598,6 +608,13 @@ function AttentionRequired({ tenants }) {
                   bedNumber={t.bedNumber}
                   rent={t.monthlyRent}
                 />
+                <Btn
+                  size="sm"
+                  variant="filled-success"
+                  onClick={() => onMarkPaid(t)}
+                >
+                  Paid
+                </Btn>
               </div>
             </div>
           ))}
@@ -619,22 +636,21 @@ function QuickActions({ onAssignTenant, onAddTenant, onOpenRooms, onOpenPayments
   ];
 
   return (
-    <Card className="overflow-hidden">
-      <SectionHeader title="Quick Actions" />
-      <div className="grid grid-cols-2 gap-2 p-3 sm:grid-cols-4">
-        {actions.map(a => (
-          <button
-            key={a.label}
-            type="button"
-            onClick={a.onClick}
-            className="flex flex-col items-center gap-1.5 rounded-lg py-3.5 text-xs font-semibold text-ink transition-all hover:bg-mist active:scale-95"
-          >
-            <a.icon className="h-5 w-5 text-slate2" />
-            {a.label}
-          </button>
-        ))}
-      </div>
-    </Card>
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {actions.map(a => (
+        <button
+          key={a.label}
+          type="button"
+          onClick={a.onClick}
+          className="flex flex-col items-start gap-3 rounded-xl bg-white border border-border shadow-card p-4 text-left transition-all hover:border-slate2/40 active:scale-[0.97]"
+        >
+          <div className="rounded-lg bg-mist p-2.5">
+            <a.icon className="h-5 w-5 text-ink" />
+          </div>
+          <span className="text-sm font-semibold text-ink leading-tight">{a.label}</span>
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -679,11 +695,11 @@ function RecentActivity({ propertyId }) {
   );
 }
 
-function DashboardPage({ tenants, totalBeds, selectedPropertyId, onGoToPayments, onGoToRooms, onAddTenant, onAssignTenant }) {
+function DashboardPage({ tenants, totalBeds, selectedPropertyId, onGoToPayments, onGoToRooms, onAddTenant, onAssignTenant, onMarkPaid }) {
   return (
     <div className="flex flex-col gap-4">
       <BusinessHealth tenants={tenants} totalBeds={totalBeds} />
-      <AttentionRequired tenants={tenants} />
+      <AttentionRequired tenants={tenants} onMarkPaid={onMarkPaid} />
       <QuickActions
         onAssignTenant={onAssignTenant}
         onAddTenant={onAddTenant}
@@ -880,21 +896,31 @@ function PaymentsPage({ selectedPropertyId }) {
                       <p className="text-xs text-slate2">Paid {String(r.paidAt).slice(0, 10)}</p>
                     )}
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <StatusBadge status={r.status === 'paid' ? 'paid' : 'unpaid'} />
-                    <PaymentToggleBtn
-                      isPaid={r.status === 'paid'}
-                      onMarkPaid={() => handleMarkPaid(r)}
-                      onMarkUnpaid={() => handleMarkUnpaid(r)}
-                    />
-                    {r.status === 'unpaid' && (
-                      <WhatsAppLink
-                        name={r.name}
-                        phone={r.phone}
-                        roomNumber={r.roomNumber}
-                        bedNumber={r.bedNumber}
-                        rent={r.amount}
-                      />
+                  <div className="flex items-center gap-2 shrink-0">
+                    {r.status === 'unpaid' ? (
+                      <>
+                        <WhatsAppLink
+                          name={r.name}
+                          phone={r.phone}
+                          roomNumber={r.roomNumber}
+                          bedNumber={r.bedNumber}
+                          rent={r.amount}
+                        />
+                        <Btn
+                          size="sm"
+                          variant="filled-success"
+                          onClick={() => handleMarkPaid(r)}
+                        >
+                          Paid
+                        </Btn>
+                      </>
+                    ) : (
+                      <>
+                        <StatusBadge status="paid" />
+                        <Btn size="sm" variant="ghost" onClick={() => handleMarkUnpaid(r)}>
+                          Undo
+                        </Btn>
+                      </>
                     )}
                   </div>
                 </div>
@@ -925,6 +951,9 @@ export default function App() {
   const [saving, setSaving] = useState(false);
   const [roomPrefill, setRoomPrefill] = useState(null);
   const [error, setError] = useState('');
+  const [mountedPages, setMountedPages] = useState(() => new Set([page]));
+  const [enteringPage, setEnteringPage] = useState(page);
+  const [roomsVersion, setRoomsVersion] = useState(0);
 
   useEffect(() => {
     if (!hasSupabaseConfig) { setLoadingProperties(false); return; }
@@ -949,9 +978,17 @@ export default function App() {
       .catch(e => { setError(e.message); setLoading(false); });
   }, [selectedPropertyId]);
 
+  useEffect(() => {
+    if (!enteringPage) return;
+    const id = setTimeout(() => setEnteringPage(null), 250);
+    return () => clearTimeout(id);
+  }, [enteringPage]);
+
   function navigateTo(newPage) {
     localStorage.setItem('stayops_page', newPage);
     setPage(newPage);
+    setEnteringPage(newPage);
+    setMountedPages(m => { const n = new Set(m); n.add(newPage); return n; });
   }
 
   const totalBeds = useMemo(() => {
@@ -964,6 +1001,7 @@ export default function App() {
     try {
       const c = await createTenant({ ...tenant, paymentStatus: 'Unpaid', paymentDate: '' });
       setTenants(cur => [c, ...cur]);
+      setRoomsVersion(v => v + 1);
       logActivity(selectedPropertyId, 'tenant_assigned', `${c.name} assigned to Room ${c.roomNumber} Bed ${c.bedNumber}`);
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
@@ -985,6 +1023,7 @@ export default function App() {
       await deleteTenant(tenant.id);
       setTenants(cur => cur.filter(t => t.id !== tenant.id));
       if (editingTenant?.id === tenant.id) setEditingTenant(null);
+      setRoomsVersion(v => v + 1);
       logActivity(selectedPropertyId, 'tenant_vacated', `${tenant.name} vacated Room ${tenant.roomNumber} Bed ${tenant.bedNumber}`);
     } catch (e) { setError(e.message); }
   }
@@ -1040,8 +1079,8 @@ export default function App() {
         {loading
           ? <PageLoader />
           : (
-            <div key={page} className="page-enter">
-              {page === 'dashboard' && (
+            <>
+              <div className={page !== 'dashboard' ? 'hidden' : enteringPage === 'dashboard' ? 'page-enter' : undefined}>
                 <DashboardPage
                   tenants={tenants}
                   totalBeds={totalBeds}
@@ -1049,20 +1088,24 @@ export default function App() {
                   onGoToPayments={() => navigateTo('payments')}
                   onGoToRooms={() => navigateTo('rooms')}
                   onAssignTenant={() => navigateTo('rooms')}
+                  onMarkPaid={t => patchPayment(t, 'Paid')}
                   onAddTenant={() => {
                     setEditingTenant(null);
                     setRoomPrefill(null);
                     navigateTo('tenants');
                   }}
                 />
-              )}
-              {page === 'rooms' && (
-                <RoomsPage
-                  selectedPropertyId={selectedPropertyId}
-                  onAssignBed={prefill => { setRoomPrefill(prefill); navigateTo('tenants'); }}
-                />
-              )}
-              {page === 'tenants' && (
+              </div>
+              <div className={page !== 'rooms' ? 'hidden' : enteringPage === 'rooms' ? 'page-enter' : undefined}>
+                {mountedPages.has('rooms') && (
+                  <RoomsPage
+                    key={`${selectedPropertyId}-${roomsVersion}`}
+                    selectedPropertyId={selectedPropertyId}
+                    onAssignBed={prefill => { setRoomPrefill(prefill); navigateTo('tenants'); }}
+                  />
+                )}
+              </div>
+              <div className={page !== 'tenants' ? 'hidden' : enteringPage === 'tenants' ? 'page-enter' : undefined}>
                 <TenantsPage
                   tenants={tenants}
                   properties={properties}
@@ -1080,11 +1123,13 @@ export default function App() {
                   onReturnDeposit={handleReturnDeposit}
                   onForfeitDeposit={handleForfeitDeposit}
                 />
-              )}
-              {page === 'payments' && (
-                <PaymentsPage selectedPropertyId={selectedPropertyId} />
-              )}
-            </div>
+              </div>
+              <div className={page !== 'payments' ? 'hidden' : enteringPage === 'payments' ? 'page-enter' : undefined}>
+                {mountedPages.has('payments') && (
+                  <PaymentsPage selectedPropertyId={selectedPropertyId} />
+                )}
+              </div>
+            </>
           )
         }
       </main>
