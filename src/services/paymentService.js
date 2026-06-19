@@ -92,6 +92,21 @@ export async function markRecordPaid(recordId, amountCollected, deductionReason)
   if (error) throw error;
 }
 
+export async function markTenantRecordPaid(tenantId, yearMonth, amountCollected, deductionReason) {
+  if (!hasSupabaseConfig) return;
+  const { error } = await supabase
+    .from('payment_records')
+    .update({
+      status: 'paid',
+      paid_at: new Date().toISOString(),
+      amount_collected: amountCollected ?? null,
+      deduction_reason: deductionReason || null,
+    })
+    .eq('tenant_id', tenantId)
+    .eq('month', yearMonth);
+  if (error) throw error;
+}
+
 export async function markRecordUnpaid(recordId) {
   if (!hasSupabaseConfig) return;
   const { error } = await supabase

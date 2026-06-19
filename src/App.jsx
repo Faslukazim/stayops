@@ -4,7 +4,7 @@ import {
   Home, Loader2, MessageCircle, Pencil, Plus, Save, Trash2, UserPlus, Users, X,
 } from 'lucide-react';
 import { createTenant, deleteTenant, fetchTenants, forfeitDeposit, returnDeposit, updateTenant } from './services/tenantService';
-import { ensurePaymentRecords, fetchPaymentRecords, markRecordPaid, markRecordUnpaid } from './services/paymentService';
+import { ensurePaymentRecords, fetchPaymentRecords, markRecordPaid, markRecordUnpaid, markTenantRecordPaid } from './services/paymentService';
 import { logActivity, fetchRecentActivity } from './services/activityService';
 import { fetchProperties, fetchRoomsWithBeds } from './services/propertyService';
 import { hasSupabaseConfig } from './lib/supabase';
@@ -1114,6 +1114,7 @@ export default function App() {
   const [mountedPages, setMountedPages] = useState(() => new Set([page]));
   const [enteringPage, setEnteringPage] = useState(page);
   const [roomsVersion, setRoomsVersion] = useState(0);
+  const [collectingTenant, setCollectingTenant] = useState(null);
 
   useEffect(() => {
     if (!hasSupabaseConfig) { setLoadingProperties(false); return; }
@@ -1188,6 +1189,14 @@ export default function App() {
     } catch (e) { setError(e.message); }
   }
 
+  async function handleTenantMarkPaid(amountCollected, deductionReason) {
+    const t = collectingTenant;
+    setCollectingTenant(null);
+    const currentYM = new Date().toISOString().slice(0, 7);
+    await patchPayment(t, 'Paid');
+    markTenantRecordPaid(t.id, currentYM, amountCollected, deductionReason).catch(console.error);
+  }
+
   async function patchPayment(tenant, status) {
     try {
       const u = await updateTenant(tenant.id, {
@@ -1248,7 +1257,7 @@ export default function App() {
                   onGoToPayments={() => navigateTo('payments')}
                   onGoToRooms={() => navigateTo('rooms')}
                   onAssignTenant={() => navigateTo('rooms')}
-                  onMarkPaid={t => patchPayment(t, 'Paid')}
+                  onMarkPaid={setCollectingTenant}
                   onAddTenant={() => {
                     setEditingTenant(null);
                     setRoomPrefill(null);
@@ -1278,7 +1287,7 @@ export default function App() {
                   onCancelEdit={() => setEditingTenant(null)}
                   onEdit={t => { setEditingTenant(t); navigateTo('tenants'); }}
                   onDelete={handleDelete}
-                  onMarkPaid={t => patchPayment(t, 'Paid')}
+                  onMarkPaid={setCollectingTenant}
                   onMarkUnpaid={t => patchPayment(t, 'Unpaid')}
                   onReturnDeposit={handleReturnDeposit}
                   onForfeitDeposit={handleForfeitDeposit}
@@ -1293,6 +1302,14 @@ export default function App() {
           )
         }
       </main>
+
+      {collectingTenant && (
+        <CollectModal
+          record={{ amount: collectingTenant.monthlyRent, name: collectingTenant.name, roomNumber: collectingTenant.roomNumber, bedNumber: collectingTenant.bedNumber }}
+          onConfirm={handleTenantMarkPaid}
+          onCancel={() => setCollectingTenant(null)}
+        />
+      )}
 
       <BottomNav active={page} onChange={navigateTo} />
     </div>
