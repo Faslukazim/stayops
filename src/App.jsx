@@ -45,11 +45,10 @@ function PropertyPill({ properties, selectedId, onChange, loading }) {
 
 function StayOpsLogo() {
   return (
-    <div className="flex items-center gap-2">
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect width="28" height="28" rx="7" fill="white" fillOpacity="0.12"/>
-        <text x="14" y="20" fontFamily="system-ui,-apple-system,sans-serif" fontSize="16" fontWeight="700" fill="white" textAnchor="middle">S</text>
-      </svg>
+    <div className="flex items-center gap-2.5">
+      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-sm font-bold text-white leading-none">
+        S
+      </div>
       <span className="text-[13px] font-semibold tracking-wide text-white/70 hidden sm:block">StayOps</span>
     </div>
   );
