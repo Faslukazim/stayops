@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  BedDouble, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, CreditCard,
+  BarChart2, BedDouble, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight,
   Home, Loader2, MessageCircle, Pencil, Plus, Save, Trash2, UserPlus, Users, X,
 } from 'lucide-react';
 import { createTenant, deleteTenant, fetchTenants, forfeitDeposit, returnDeposit, updateTenant } from './services/tenantService';
-import { ensurePaymentRecords, fetchPaymentRecords, markRecordPaid, markRecordUnpaid, markTenantRecordPaid } from './services/paymentService';
+import { markTenantRecordPaid } from './services/paymentService';
 import { logActivity, fetchRecentActivity } from './services/activityService';
 import { fetchProperties, fetchRoomsWithBeds } from './services/propertyService';
+import { readExpensesSync } from './services/financeService';
 import { hasSupabaseConfig } from './lib/supabase';
 import RoomsPage from './RoomsPage';
+import FinancePage from './FinancePage';
 import {
   fmt, Label, Card, SectionHeader, Btn, IconBtn,
   StatusBadge, WhatsAppLink,
@@ -78,10 +80,10 @@ function Header({ properties, selectedPropertyId, onPropertyChange, loadingPrope
 // ─── nav ─────────────────────────────────────────────────────────────────────
 
 const PAGES = [
-  { id: 'dashboard', label: 'Overview',  icon: Home },
-  { id: 'rooms',     label: 'Rooms',     icon: BedDouble },
-  { id: 'tenants',   label: 'Tenants',   icon: Users },
-  { id: 'payments',  label: 'Payments',  icon: CreditCard },
+  { id: 'dashboard', label: 'Overview', icon: Home },
+  { id: 'rooms',     label: 'Rooms',    icon: BedDouble },
+  { id: 'tenants',   label: 'Tenants',  icon: Users },
+  { id: 'finance',   label: 'Finance',  icon: BarChart2 },
 ];
 
 function BottomNav({ active, onChange }) {
@@ -598,7 +600,6 @@ function MoveInHealth({ tenants }) {
 }
 
 // ─── dashboard: financial health ─────────────────────────────────────────────
-// Revenue breakdown for the current month from payment_records.
 
 function FinancialHealth({ selectedPropertyId, totalBeds, tenants }) {
   const currentYM = useMemo(() => new Date().toISOString().slice(0, 7), []);
@@ -606,7 +607,10 @@ function FinancialHealth({ selectedPropertyId, totalBeds, tenants }) {
 
   useEffect(() => {
     if (!selectedPropertyId) return;
-    fetchPaymentRecords(selectedPropertyId, currentYM).then(setRecords).catch(() => {});
+    // fetchPaymentRecords is no longer imported at root — derive from tenants
+    import('./services/paymentService').then(m =>
+      m.fetchPaymentRecords(selectedPropertyId, currentYM).then(setRecords).catch(() => {})
+    );
   }, [selectedPropertyId, currentYM]);
 
   if (records.length === 0) return null;
@@ -620,17 +624,23 @@ function FinancialHealth({ selectedPropertyId, totalBeds, tenants }) {
   const avgRent = occupied > 0 ? potentialRevenue / occupied : 0;
   const vacancyLoss = Math.round(vacant * avgRent);
 
-  const monthLabel = new Date(currentYM + '-02').toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+  // Expenses from localStorage for quick profit estimate
+  const expenses = readExpensesSync(selectedPropertyId, currentYM);
+  const totalExpenses = expenses.reduce((s, e) => s + Number(e.amount || 0), 0);
+  const netProfit = actualCollected - totalExpenses;
+  const hasExpenses = totalExpenses > 0;
+
+  const ml = new Date(currentYM + '-02').toLocaleString('en-IN', { month: 'long', year: 'numeric' });
 
   return (
     <Card className="overflow-hidden">
-      <SectionHeader title={`Revenue Health · ${monthLabel}`} />
+      <SectionHeader title={`Revenue Health · ${ml}`} />
       <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-4">
         {[
-          { label: 'Potential', value: fmt(potentialRevenue), sub: `${occupied} occupied beds`, color: 'text-ink' },
-          { label: 'Collected', value: fmt(actualCollected), sub: `${paidRecords.length} paid`, color: actualCollected > 0 ? 'text-leaf' : 'text-slate2' },
-          { label: 'Deductions', value: fmt(deductionLoss), sub: deductionLoss > 0 ? 'adjustments' : 'none', color: deductionLoss > 0 ? 'text-coral' : 'text-ink' },
-          { label: 'Vacancy Loss', value: fmt(vacancyLoss), sub: `${vacant} vacant beds`, color: vacancyLoss > 0 ? 'text-amber' : 'text-leaf' },
+          { label: 'Potential',     value: fmt(potentialRevenue), sub: `${occupied} occupied beds`,                 color: 'text-ink' },
+          { label: 'Collected',     value: fmt(actualCollected),  sub: `${paidRecords.length} paid`,                color: actualCollected > 0 ? 'text-leaf' : 'text-slate2' },
+          { label: 'Deductions',    value: fmt(deductionLoss),    sub: deductionLoss > 0 ? 'adjustments' : 'none', color: deductionLoss > 0 ? 'text-coral' : 'text-ink' },
+          { label: 'Vacancy Loss',  value: fmt(vacancyLoss),      sub: `${vacant} vacant beds`,                     color: vacancyLoss > 0 ? 'text-amber' : 'text-leaf' },
         ].map(s => (
           <div key={s.label} className="bg-white px-4 py-4">
             <Label>{s.label}</Label>
@@ -639,6 +649,20 @@ function FinancialHealth({ selectedPropertyId, totalBeds, tenants }) {
           </div>
         ))}
       </div>
+      {hasExpenses && (
+        <div className={`grid grid-cols-3 gap-px bg-border border-t border-border`}>
+          {[
+            { label: 'Expenses',   value: fmt(totalExpenses), color: 'text-coral' },
+            { label: netProfit >= 0 ? 'Net Profit' : 'Net Loss', value: fmt(Math.abs(netProfit)), color: netProfit >= 0 ? 'text-leaf' : 'text-coral' },
+            { label: 'Profit %',  value: actualCollected > 0 ? `${Math.round((netProfit / actualCollected) * 100)}%` : '—', color: netProfit >= 0 ? 'text-leaf' : 'text-coral' },
+          ].map(s => (
+            <div key={s.label} className="bg-white px-4 py-3">
+              <Label>{s.label}</Label>
+              <p className={`mt-1 text-lg font-bold tabular-nums ${s.color}`}>{s.value}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </Card>
   );
 }
@@ -740,12 +764,12 @@ function AttentionRequired({ tenants, onMarkPaid }) {
 // ─── dashboard: quick actions ─────────────────────────────────────────────────
 // The four things an operator actually does, one tap away.
 
-function QuickActions({ onAssignTenant, onAddTenant, onOpenRooms, onOpenPayments }) {
+function QuickActions({ onAssignTenant, onAddTenant, onOpenRooms, onOpenFinance }) {
   const actions = [
     { label: 'Assign Tenant', icon: UserPlus,  onClick: onAssignTenant },
     { label: 'Add Tenant',    icon: Plus,      onClick: onAddTenant },
     { label: 'Open Rooms',    icon: BedDouble, onClick: onOpenRooms },
-    { label: 'Payments',      icon: CreditCard,onClick: onOpenPayments },
+    { label: 'Finance',       icon: BarChart2, onClick: onOpenFinance },
   ];
 
   return (
@@ -808,7 +832,7 @@ function RecentActivity({ propertyId }) {
   );
 }
 
-function DashboardPage({ tenants, totalBeds, selectedPropertyId, onGoToPayments, onGoToRooms, onAddTenant, onAssignTenant, onMarkPaid }) {
+function DashboardPage({ tenants, totalBeds, selectedPropertyId, onGoToFinance, onGoToRooms, onAddTenant, onAssignTenant, onMarkPaid }) {
   return (
     <div className="flex flex-col gap-4">
       <BusinessHealth tenants={tenants} totalBeds={totalBeds} />
@@ -819,7 +843,7 @@ function DashboardPage({ tenants, totalBeds, selectedPropertyId, onGoToPayments,
         onAssignTenant={onAssignTenant}
         onAddTenant={onAddTenant}
         onOpenRooms={onGoToRooms}
-        onOpenPayments={onGoToPayments}
+        onOpenFinance={onGoToFinance}
       />
       <RecentActivity propertyId={selectedPropertyId} />
     </div>
@@ -901,189 +925,14 @@ function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, sa
   );
 }
 
-function PaymentsPage({ selectedPropertyId }) {
-  const now = new Date();
-  const currentYM = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
-  const [yearMonth, setYearMonth] = useState(currentYM);
-  const [records, setRecords] = useState([]);
-  const [loadingRecords, setLoadingRecords] = useState(false);
-  const [recordError, setRecordError] = useState('');
-  const [collectingRecord, setCollectingRecord] = useState(null);
-
-  useEffect(() => {
-    if (!selectedPropertyId) return;
-    setLoadingRecords(true);
-    setRecordError('');
-    ensurePaymentRecords(selectedPropertyId, yearMonth)
-      .then(() => fetchPaymentRecords(selectedPropertyId, yearMonth))
-      .then(setRecords)
-      .catch(e => setRecordError(e.message))
-      .finally(() => setLoadingRecords(false));
-  }, [selectedPropertyId, yearMonth]);
-
-  function prevMonth() {
-    const [y, m] = yearMonth.split('-').map(Number);
-    const d = new Date(y, m - 2);
-    setYearMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-  }
-  function nextMonth() {
-    if (yearMonth >= currentYM) return;
-    const [y, m] = yearMonth.split('-').map(Number);
-    const d = new Date(y, m);
-    setYearMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
-  }
-
-  const today = now.getDate();
-  const isCurrentMonth = yearMonth === currentYM;
-
-  function isOverdue(r) {
-    if (r.status === 'paid') return false;
-    return isCurrentMonth ? today > r.dueDay : true;
-  }
-  function daysOverdueLabel(r) {
-    if (!isCurrentMonth) return 'Overdue';
-    const d = today - r.dueDay;
-    return d === 1 ? '1 day overdue' : `${d} days overdue`;
-  }
-
-  const paidRecords = records.filter(r => r.status === 'paid');
-  const unpaidRecords = records.filter(r => r.status === 'unpaid');
-  const overdue = records.filter(r => isOverdue(r)).length;
-  const actualCollected = paidRecords.reduce((s, r) => s + (r.amountCollected ?? r.amount), 0);
-  const deductions = paidRecords.reduce((s, r) => s + (r.amount - (r.amountCollected ?? r.amount)), 0);
-  const pendingAmt = unpaidRecords.reduce((s, r) => s + r.amount, 0);
-
-  const monthLabel = new Date(yearMonth + '-02').toLocaleString('en-IN', { month: 'long', year: 'numeric' });
-
-  function handleMarkPaid(r) {
-    setCollectingRecord(r);
-  }
-  async function handleConfirmPaid(amountCollected, deductionReason) {
-    const r = collectingRecord;
-    setCollectingRecord(null);
-    setRecords(rs => rs.map(x => x.id === r.id ? {
-      ...x, status: 'paid', paidAt: new Date().toISOString(), amountCollected, deductionReason,
-    } : x));
-    try {
-      await markRecordPaid(r.id, amountCollected, deductionReason);
-    } catch (err) {
-      console.error('markRecordPaid failed:', err?.message ?? err);
-      setRecords(rs => rs.map(x => x.id === r.id ? { ...x, status: 'unpaid', paidAt: null, amountCollected: null, deductionReason: null } : x));
-    }
-  }
-  async function handleMarkUnpaid(r) {
-    await markRecordUnpaid(r.id);
-    setRecords(rs => rs.map(x => x.id === r.id ? {
-      ...x, status: 'unpaid', paidAt: null, amountCollected: null, deductionReason: null,
-    } : x));
-  }
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between px-1">
-        <IconBtn onClick={prevMonth}><ChevronLeft className="h-5 w-5" /></IconBtn>
-        <span className="font-semibold text-ink">{monthLabel}</span>
-        <IconBtn onClick={nextMonth} disabled={yearMonth >= currentYM} className="disabled:opacity-30 disabled:pointer-events-none">
-          <ChevronRight className="h-5 w-5" />
-        </IconBtn>
-      </div>
-
-      <StatStrip stats={[
-        { label: 'Collected',  value: fmt(actualCollected), sub: `${paidRecords.length} paid`,       color: actualCollected > 0 ? 'text-leaf' : 'text-slate2' },
-        { label: 'Deductions', value: fmt(deductions),      sub: deductions > 0 ? 'adjustments' : 'none', color: deductions > 0 ? 'text-coral' : 'text-ink' },
-        { label: 'Pending',    value: fmt(pendingAmt),      sub: `${unpaidRecords.length} unpaid`,   color: pendingAmt > 0 ? 'text-amber' : 'text-leaf' },
-        { label: 'Overdue',    value: overdue,              sub: overdue > 0 ? 'need attention' : 'all clear', color: overdue > 0 ? 'text-coral' : 'text-leaf' },
-      ]} />
-
-      {recordError && (
-        <div className="rounded-lg border border-coral/30 bg-coral/5 px-4 py-3 text-sm text-coral">
-          {recordError}
-        </div>
-      )}
-
-      <Card className="overflow-hidden">
-        <SectionHeader title="Payment records" />
-        {loadingRecords ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="h-5 w-5 animate-spin text-slate2" />
-          </div>
-        ) : records.length === 0 ? (
-          <EmptyState icon={CreditCard} title="No records for this month" body="Records are created automatically when tenants are active." />
-        ) : (
-          <div className="divide-y divide-border">
-            {records.map(r => {
-              const overdue = isOverdue(r);
-              return (
-                <div key={r.id} className="flex items-center gap-3 px-4 py-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-ink truncate">{r.name}</p>
-                    <p className="text-xs text-slate2 tabular-nums">
-                      Room {r.roomNumber} · Bed {r.bedNumber} · {fmt(r.amount)}
-                    </p>
-                    {overdue && (
-                      <p className="text-xs font-semibold text-coral">{daysOverdueLabel(r)}</p>
-                    )}
-                    {r.status === 'paid' && r.paidAt && (
-                      <p className="text-xs text-slate2">
-                        {r.amountCollected != null && r.amountCollected !== r.amount
-                          ? <>{fmt(r.amountCollected)} collected · <span className="text-coral">{fmt(r.amount - r.amountCollected)} deducted</span>{r.deductionReason ? ` · ${r.deductionReason}` : ''}</>
-                          : `Paid ${String(r.paidAt).slice(0, 10)}`
-                        }
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {r.status === 'unpaid' ? (
-                      <>
-                        <WhatsAppLink
-                          name={r.name}
-                          phone={r.phone}
-                          roomNumber={r.roomNumber}
-                          bedNumber={r.bedNumber}
-                          rent={r.amount}
-                        />
-                        <Btn
-                          size="sm"
-                          variant="filled-success"
-                          onClick={() => handleMarkPaid(r)}
-                        >
-                          Mark Paid
-                        </Btn>
-                      </>
-                    ) : (
-                      <>
-                        <StatusBadge status="paid" />
-                        <Btn size="sm" variant="ghost" onClick={() => handleMarkUnpaid(r)}>
-                          Undo
-                        </Btn>
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </Card>
-
-      {collectingRecord && (
-        <CollectModal
-          record={collectingRecord}
-          onConfirm={handleConfirmPaid}
-          onCancel={() => setCollectingRecord(null)}
-        />
-      )}
-    </div>
-  );
-}
-
 // ─── root ────────────────────────────────────────────────────────────────────
 
 export default function App() {
   const [page, setPage] = useState(() => {
     const saved = localStorage.getItem('stayops_page');
-    return ['dashboard','rooms','tenants','payments'].includes(saved) ? saved : 'dashboard';
+    // 'payments' is now 'finance' — migrate old saved value
+    if (saved === 'payments') return 'finance';
+    return ['dashboard','rooms','tenants','finance'].includes(saved) ? saved : 'dashboard';
   });
   const [properties, setProperties] = useState([]);
   const [selectedPropertyId, setSelectedPropertyId] = useState(
@@ -1239,7 +1088,7 @@ export default function App() {
                   tenants={tenants}
                   totalBeds={totalBeds}
                   selectedPropertyId={selectedPropertyId}
-                  onGoToPayments={() => navigateTo('payments')}
+                  onGoToFinance={() => navigateTo('finance')}
                   onGoToRooms={() => navigateTo('rooms')}
                   onAssignTenant={() => navigateTo('rooms')}
                   onMarkPaid={setCollectingTenant}
@@ -1278,9 +1127,9 @@ export default function App() {
                   onForfeitDeposit={handleForfeitDeposit}
                 />
               </div>
-              <div className={page !== 'payments' ? 'hidden' : enteringPage === 'payments' ? 'page-enter' : undefined}>
-                {mountedPages.has('payments') && (
-                  <PaymentsPage selectedPropertyId={selectedPropertyId} />
+              <div className={page !== 'finance' ? 'hidden' : enteringPage === 'finance' ? 'page-enter' : undefined}>
+                {mountedPages.has('finance') && (
+                  <FinancePage selectedPropertyId={selectedPropertyId} tenants={tenants} />
                 )}
               </div>
             </>
