@@ -240,6 +240,53 @@ export function ConfirmInline({ message, onConfirm, onCancel, confirmLabel = 'Co
   );
 }
 
+// ─── normalizePhone / isValidPhone ───────────────────────────────────────────
+// Always store as +91XXXXXXXXXX. Strip non-digits, prepend country code.
+
+export function normalizePhone(raw) {
+  const digits = String(raw || '').replace(/\D/g, '');
+  if (digits.length === 10) return `+91${digits}`;
+  if (digits.length === 12 && digits.startsWith('91')) return `+${digits}`;
+  if (digits.length === 13 && digits.startsWith('91')) return `+${digits}`;
+  return `+${digits}`;
+}
+
+export function isValidPhone(raw) {
+  return /^\+91[6-9]\d{9}$/.test(normalizePhone(raw));
+}
+
+// ─── MoneyInput ───────────────────────────────────────────────────────────────
+// [-] value [+] with ₹500 step. Hides native spinners. Large touch targets.
+
+export function MoneyInput({ value, onChange, min = 0, className = '' }) {
+  const num = Number(value) || 0;
+  return (
+    <div className={`flex items-center rounded-lg border border-border bg-white overflow-hidden ${className}`}>
+      <button
+        type="button"
+        onClick={() => onChange(String(Math.max(min, num - 500)))}
+        className="flex items-center justify-center w-12 self-stretch text-2xl font-light text-slate2 hover:bg-mist active:bg-border transition-colors shrink-0 select-none"
+      >
+        −
+      </button>
+      <input
+        type="number"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        min={min}
+        className="flex-1 min-w-0 text-center text-sm font-bold text-ink bg-transparent py-3 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+      />
+      <button
+        type="button"
+        onClick={() => onChange(String(num + 500))}
+        className="flex items-center justify-center w-12 self-stretch text-2xl font-light text-slate2 hover:bg-mist active:bg-border transition-colors shrink-0 select-none"
+      >
+        +
+      </button>
+    </div>
+  );
+}
+
 // ─── CollectModal ─────────────────────────────────────────────────────────────
 // Mark-paid modal: captures amount collected + optional deduction reason.
 // record: { amount, name, roomNumber, bedNumber }
@@ -267,14 +314,7 @@ export function CollectModal({ record, onConfirm, onCancel }) {
 
           <label className="mt-3 block">
             <Label>Amount Collected</Label>
-            <input
-              type="number"
-              min="0"
-              value={amount}
-              onChange={e => setAmount(e.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-border px-3 py-2.5 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink tabular-nums"
-              autoFocus
-            />
+            <MoneyInput value={amount} onChange={setAmount} min={0} className="mt-1.5" />
           </label>
 
           {deduction > 0 && (

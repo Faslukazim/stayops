@@ -13,6 +13,7 @@ import {
   fmt, Label, Card, SectionHeader, Btn, IconBtn,
   StatusBadge, WhatsAppLink,
   PageLoader, StatStrip, ConfirmInline, EmptyState, CollectModal,
+  MoneyInput, normalizePhone, isValidPhone,
 } from './components/ui';
 
 
@@ -229,9 +230,11 @@ const emptyForm = {
 
 function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onSubmit, onCancel, saving }) {
   const [form, setForm] = useState(emptyForm);
+  const [phoneError, setPhoneError] = useState('');
 
   useEffect(() => {
     if (initialTenant) {
+      setPhoneError('');
       setForm({
         name: initialTenant.name,
         phone: initialTenant.phone,
@@ -262,8 +265,14 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (!isValidPhone(form.phone)) {
+      setPhoneError('Enter a valid 10-digit Indian mobile number (e.g. 9876543210)');
+      return;
+    }
+    setPhoneError('');
     await onSubmit({
       ...form,
+      phone: normalizePhone(form.phone),
       monthlyRent: Number(form.monthlyRent),
       admissionFee: Number(form.admissionFee || 0),
       depositAmount: Number(form.depositAmount || 0),
@@ -300,10 +309,13 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
             <input
               required
               value={form.phone}
-              onChange={e => set('phone', e.target.value)}
-              className={inputCls}
-              placeholder="919876543210"
+              onChange={e => { set('phone', e.target.value); setPhoneError(''); }}
+              onBlur={() => form.phone && !isValidPhone(form.phone) && setPhoneError('Enter a valid 10-digit Indian mobile number')}
+              className={`${inputCls} ${phoneError ? 'border-coral focus:ring-coral/20 focus:border-coral' : ''}`}
+              placeholder="9876543210"
+              inputMode="tel"
             />
+            {phoneError && <p className="mt-1 text-xs text-coral">{phoneError}</p>}
           </label>
         </div>
 
@@ -320,15 +332,7 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
             <Label>Monthly rent</Label>
-            <input
-              required
-              min="0"
-              type="number"
-              value={form.monthlyRent}
-              onChange={e => set('monthlyRent', e.target.value)}
-              className={inputCls}
-              placeholder="6500"
-            />
+            <MoneyInput value={form.monthlyRent} onChange={v => set('monthlyRent', v)} className="mt-1.5" />
           </label>
           <label className="block">
             <Label>Join date</Label>
@@ -345,40 +349,20 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
             <Label>Admission Fee <span className="text-slate2 font-normal">(one-time)</span></Label>
-            <input
-              min="0"
-              type="number"
-              value={form.admissionFee}
-              onChange={e => set('admissionFee', e.target.value)}
-              className={inputCls}
-              placeholder="500"
-            />
+            <MoneyInput value={form.admissionFee} onChange={v => set('admissionFee', v)} className="mt-1.5" />
           </label>
           <label className="block">
             <Label>Security Deposit <span className="text-slate2 font-normal">(refundable)</span></Label>
-            <input
-              min="0"
-              type="number"
-              value={form.depositAmount}
-              onChange={e => set('depositAmount', e.target.value)}
-              className={inputCls}
-              placeholder="500"
-            />
+            <MoneyInput value={form.depositAmount} onChange={v => set('depositAmount', v)} className="mt-1.5" />
           </label>
         </div>
 
-        <div className="rounded-lg bg-mist px-3 py-2.5 flex items-center justify-between">
-          <div>
+        <div className="rounded-lg bg-mist px-3 py-2.5">
+          <div className="flex items-center justify-between mb-1.5">
             <Label>Move-In Collection</Label>
-            <p className="text-xs text-slate2 mt-0.5">Rent + Admission + Deposit</p>
+            <span className="text-xs text-slate2">Rent + Admission + Deposit</span>
           </div>
-          <input
-            min="0"
-            type="number"
-            value={form.moveInCollection}
-            onChange={e => set('moveInCollection', e.target.value)}
-            className="w-28 rounded-lg border border-border bg-white px-3 py-2 text-sm font-bold text-ink text-right focus:outline-none focus:ring-2 focus:ring-ink/20 tabular-nums"
-          />
+          <MoneyInput value={form.moveInCollection} onChange={v => set('moveInCollection', v)} />
         </div>
 
         <Btn
