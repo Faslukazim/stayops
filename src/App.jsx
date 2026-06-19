@@ -539,9 +539,15 @@ function BusinessHealth({ tenants, totalBeds }) {
 // ─── dashboard: attention required ───────────────────────────────────────────
 // Unpaid tenants only — the people who need a nudge today.
 
+function daysOverdue() {
+  const now = new Date();
+  return Math.floor((now - new Date(now.getFullYear(), now.getMonth(), 1)) / 86400000);
+}
+
 function AttentionRequired({ tenants, onMarkPaid }) {
   const unpaid = tenants.filter(t => t.paymentStatus === 'Unpaid');
   const [remindExpanded, setRemindExpanded] = useState(false);
+  const overdueDays = daysOverdue();
 
   return (
     <Card className="overflow-hidden">
@@ -594,6 +600,11 @@ function AttentionRequired({ tenants, onMarkPaid }) {
               <div className="min-w-0">
                 <p className="font-semibold text-ink truncate">{t.name}</p>
                 <p className="text-xs text-slate2">Room {t.roomNumber} · {fmt(t.monthlyRent)}</p>
+                {overdueDays > 0 && (
+                  <p className="text-xs font-semibold text-coral">
+                    {overdueDays === 1 ? '1 day overdue' : `${overdueDays} days overdue`}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 <WhatsAppLink
