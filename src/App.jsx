@@ -613,7 +613,7 @@ function AttentionRequired({ tenants, onMarkPaid }) {
                   variant="filled-success"
                   onClick={() => onMarkPaid(t)}
                 >
-                  Paid
+                  Mark Paid
                 </Btn>
               </div>
             </div>
@@ -911,7 +911,7 @@ function PaymentsPage({ selectedPropertyId }) {
                           variant="filled-success"
                           onClick={() => handleMarkPaid(r)}
                         >
-                          Paid
+                          Mark Paid
                         </Btn>
                       </>
                     ) : (
