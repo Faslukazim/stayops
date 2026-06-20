@@ -46,9 +46,9 @@ export default function TenantProfile({ tenant, properties, onClose, onCollect, 
 
   return (
     <>
-      <div onClick={onClose} className="fixed inset-0 z-40 bg-black/40" aria-hidden />
+      <div onClick={onClose} className="fixed inset-0 z-[60] bg-black/40" aria-hidden />
 
-      <div className="fixed z-50 bg-white overflow-y-auto
+      <div className="fixed z-[60] bg-white overflow-y-auto
         bottom-0 left-0 right-0 rounded-t-2xl max-h-[90dvh]
         sm:top-0 sm:right-0 sm:bottom-0 sm:left-auto sm:w-[22rem] sm:rounded-none sm:rounded-l-2xl sm:max-h-none sm:h-full">
 

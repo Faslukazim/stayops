@@ -301,7 +301,7 @@ export function CollectModal({ record, onConfirm, onCancel }) {
   const deduction = record.amount - numAmount;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+    <div className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/50 px-4" style={{ paddingBottom: 'env(safe-area-inset-bottom, 16px)' }}>
       <div className="w-full max-w-sm rounded-2xl bg-white shadow-xl">
         <div className="px-5 pt-5 pb-4">
           <h3 className="font-semibold text-ink">Record Payment</h3>
