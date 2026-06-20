@@ -10,9 +10,8 @@ function localRecordsFromTenants(tenants) {
     roomNumber: t.roomNumber,
     bedNumber: t.bedNumber,
     amount: t.monthlyRent,
-    // Parse dueDay without UTC timezone issues
-    dueDay: t.joinDate ? Number(t.joinDate.slice(8, 10)) : 1,
-    joinDate: t.joinDate ?? null,
+    // Use explicit rentDueDay; fall back to joinDate day for old localStorage data
+    dueDay: t.rentDueDay ?? (t.joinDate ? Number(t.joinDate.slice(8, 10)) : 1),
     status: t.paymentStatus === 'Paid' ? 'paid' : 'unpaid',
     paidAt: t.paymentDate || null,
     amountCollected: null,
@@ -25,9 +24,8 @@ export async function ensurePaymentRecords(propertyId, yearMonth) {
 
   const query = supabase
     .from('occupancies')
-    .select('*, tenant:tenants!inner(id, name, join_date)')
-    .eq('status', 'active')
-    .eq('tenant.status', 'active');
+    .select('id, property_id, tenant_id, monthly_rent, rent_due_day')
+    .eq('status', 'active');
   if (propertyId) query.eq('property_id', propertyId);
 
   const { data: occupancies, error } = await query;
@@ -40,8 +38,7 @@ export async function ensurePaymentRecords(propertyId, yearMonth) {
     occupancy_id: occ.id,
     month: yearMonth,
     amount: occ.monthly_rent,
-    // Parse day without UTC timezone issues
-    due_day: occ.tenant.join_date ? Number(occ.tenant.join_date.slice(8, 10)) : 1,
+    due_day: occ.rent_due_day ?? 1,
     status: 'unpaid',
   }));
 
@@ -59,7 +56,7 @@ export async function fetchPaymentRecords(propertyId, yearMonth) {
 
   const query = supabase
     .from('payment_records')
-    .select('*, tenant:tenants(name, phone), occupancy:occupancies(monthly_rent, start_date, room:rooms(room_number), bed:beds(bed_number))')
+    .select('*, tenant:tenants(name, phone), occupancy:occupancies(monthly_rent, rent_due_day, room:rooms(room_number), bed:beds(bed_number))')
     .eq('month', yearMonth);
   if (propertyId) query.eq('property_id', propertyId);
 
@@ -76,8 +73,8 @@ export async function fetchPaymentRecords(propertyId, yearMonth) {
     amount: Number(r.amount ?? 0),
     amountCollected: r.amount_collected != null ? Number(r.amount_collected) : null,
     deductionReason: r.deduction_reason ?? null,
+    // due_day is stamped at record creation from rent_due_day; use it directly
     dueDay: r.due_day,
-    joinDate: r.occupancy?.start_date ?? null,
     status: r.status,
     paidAt: r.paid_at,
   }));

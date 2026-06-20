@@ -57,6 +57,7 @@ function toUiTenant(occupancy) {
     bedNumber: occupancy.bed?.bed_number ?? '-',
     monthlyRent: Number(occupancy.monthly_rent ?? 0),
     joinDate: occupancy.tenant.join_date,
+    rentDueDay: occupancy.rent_due_day ?? null,
     paymentStatus: occupancy.payment_status,
     paymentDate: occupancy.payment_date ?? '',
     depositAmount: Number(occupancy.deposit_amount ?? 0),
@@ -140,6 +141,10 @@ export async function createTenant(tenant) {
 
   const depositAmt = tenant.depositAmount ?? 0;
 
+  // rent_due_day defaults to the day from joinDate — operator can correct it later
+  const rentDueDay = tenant.rentDueDay
+    ?? (tenant.joinDate ? Number(tenant.joinDate.slice(8, 10)) : 1);
+
   const { data: occupancy, error: occupancyError } = await supabase
     .from('occupancies')
     .insert({
@@ -151,6 +156,7 @@ export async function createTenant(tenant) {
       payment_status: tenant.paymentStatus ?? 'Unpaid',
       payment_date: tenant.paymentDate || null,
       start_date: tenant.joinDate,
+      rent_due_day: rentDueDay,
       status: 'active',
       deposit_amount: depositAmt,
       deposit_status: depositAmt > 0 ? 'held' : 'none',
@@ -189,6 +195,7 @@ export async function updateTenant(id, patch) {
     occupancyPatch.start_date = patch.joinDate;
   }
   if (patch.monthlyRent !== undefined) occupancyPatch.monthly_rent = patch.monthlyRent;
+  if (patch.rentDueDay !== undefined) occupancyPatch.rent_due_day = Number(patch.rentDueDay);
   if (patch.paymentStatus !== undefined) occupancyPatch.payment_status = patch.paymentStatus;
   if (patch.paymentDate !== undefined) occupancyPatch.payment_date = patch.paymentDate || null;
   if (patch.depositAmount !== undefined) occupancyPatch.deposit_amount = patch.depositAmount;

@@ -1,13 +1,16 @@
 // Single source of truth for all payment status calculations.
 // Used by FinancePage (payment_records) and Dashboard (tenant objects).
-// Both use the same rules so counts always match.
+// Both use identical rules so counts always match.
+//
+// Core design: status is derived from (dueDay, today, viewYM, record.status) only.
+// join_date / daysSinceJoin are NOT used — those are move-in concepts, not billing concepts.
 
 export const STATUS = {
   PAID:     'paid',
   DUE_SOON: 'due_soon',
   DUE_TODAY:'due_today',
   OVERDUE:  'overdue',
-  UPCOMING: 'upcoming', // new tenant grace or due date > 3 days away
+  UPCOMING: 'upcoming',
 };
 
 // Parse YYYY-MM-DD without UTC timezone issues
@@ -29,16 +32,11 @@ function todayLocal() {
   return { year: n.getFullYear(), month: n.getMonth() + 1, day: n.getDate() };
 }
 
-function daysBetween(a, b) {
-  return Math.round(
-    (new Date(b.year, b.month - 1, b.day) - new Date(a.year, a.month - 1, a.day)) / 86400000
-  );
-}
-
 /**
  * Compute display status for a payment_record row.
- * record must have: { status, dueDay, joinDate? }
- * viewYM: the YYYY-MM month being displayed
+ * record must have: { status, dueDay }
+ * dueDay comes from occupancies.rent_due_day — not from join_date.
+ * viewYM: YYYY-MM of the month being displayed.
  */
 export function computeRecordStatus(record, viewYM) {
   if (record.status === 'paid') return STATUS.PAID;
@@ -46,21 +44,14 @@ export function computeRecordStatus(record, viewYM) {
   const today = todayLocal();
   const todayYM = ymStr(today);
 
-  // Past month + unpaid = always Overdue
-  if (viewYM < todayYM) return STATUS.OVERDUE;
-  // Future month = not yet actionable
-  if (viewYM > todayYM) return STATUS.UPCOMING;
+  if (viewYM < todayYM) return STATUS.OVERDUE;  // past month, not paid
+  if (viewYM > todayYM) return STATUS.UPCOMING; // future month
 
-  // Current month — check new-tenant grace period first
-  const joinDate = parseYMD(record.joinDate);
-  const daysSinceJoin = joinDate ? daysBetween(joinDate, today) : 999;
-  // New tenant: first 30 days are grace — first rent cycle not complete yet
-  if (daysSinceJoin < 30) return STATUS.UPCOMING;
-
+  // Current month — pure due-date arithmetic, no join_date involved
   const dueDay = record.dueDay ?? 1;
-  if (today.day > dueDay)       return STATUS.OVERDUE;
-  if (today.day === dueDay)     return STATUS.DUE_TODAY;
-  if (today.day >= dueDay - 3)  return STATUS.DUE_SOON;
+  if (today.day > dueDay)      return STATUS.OVERDUE;
+  if (today.day === dueDay)    return STATUS.DUE_TODAY;
+  if (today.day >= dueDay - 3) return STATUS.DUE_SOON;
   return STATUS.UPCOMING;
 }
 
@@ -72,7 +63,9 @@ export function recordDaysOverdue(record, viewYM) {
   if (viewYM < todayYM) {
     const [y, m] = viewYM.split('-').map(Number);
     const lastDay = new Date(y, m, 0).getDate();
-    return daysBetween({ year: y, month: m, day: lastDay }, today);
+    const endOfMonth = new Date(y, m - 1, lastDay);
+    const now = new Date(today.year, today.month - 1, today.day);
+    return Math.round((now - endOfMonth) / 86400000);
   }
   if (viewYM === todayYM) {
     const diff = today.day - (record.dueDay ?? 1);
@@ -88,8 +81,9 @@ export function recordDaysUntilDue(record) {
 }
 
 /**
- * Compute display status from a tenant object (for Dashboard/Tenants page).
- * Uses paymentStatus + paymentDate to check if paid this billing cycle.
+ * Compute display status from a tenant object (Dashboard / Tenants page).
+ * Uses tenant.rentDueDay — the explicit billing day, not derived from joinDate.
+ * Falls back to joinDate day only if rentDueDay is absent (localStorage / old data).
  */
 export function computeTenantStatus(tenant) {
   const today = todayLocal();
@@ -101,22 +95,20 @@ export function computeTenantStatus(tenant) {
     return STATUS.PAID;
   }
 
-  const joinDate = parseYMD(tenant.joinDate);
-  const dueDay = joinDate?.day ?? 1;
-  const daysSinceJoin = joinDate ? daysBetween(joinDate, today) : 999;
+  // rentDueDay is the explicit field; fall back to joinDate day for old data
+  const dueDay = tenant.rentDueDay
+    ?? (tenant.joinDate ? Number(tenant.joinDate.slice(8, 10)) : 1);
 
-  if (daysSinceJoin < 30) return STATUS.UPCOMING;
-
-  if (today.day > dueDay)       return STATUS.OVERDUE;
-  if (today.day === dueDay)     return STATUS.DUE_TODAY;
-  if (today.day >= dueDay - 3)  return STATUS.DUE_SOON;
+  if (today.day > dueDay)      return STATUS.OVERDUE;
+  if (today.day === dueDay)    return STATUS.DUE_TODAY;
+  if (today.day >= dueDay - 3) return STATUS.DUE_SOON;
   return STATUS.UPCOMING;
 }
 
 /** Days overdue for a tenant. Returns 0 if not overdue. */
 export function tenantDaysOverdue(tenant) {
-  const joinDate = parseYMD(tenant.joinDate);
-  const dueDay = joinDate?.day ?? 1;
+  const dueDay = tenant.rentDueDay
+    ?? (tenant.joinDate ? Number(tenant.joinDate.slice(8, 10)) : 1);
   const today = todayLocal();
   const diff = today.day - dueDay;
   return diff > 0 ? diff : 0;

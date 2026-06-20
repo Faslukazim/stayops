@@ -228,6 +228,7 @@ function BedSelector({ properties, propertyId, roomId, bedId, onPropertyChange, 
 const emptyForm = {
   name: '', phone: '', propertyId: '', roomId: '', bedId: '',
   monthlyRent: '7000', joinDate: new Date().toISOString().slice(0, 10),
+  rentDueDay: String(new Date().getDate()),
   admissionFee: '500', depositAmount: '500', moveInCollection: '8000',
 };
 
@@ -246,6 +247,10 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
         bedId: initialTenant.bedId ?? '',
         monthlyRent: initialTenant.monthlyRent,
         joinDate: initialTenant.joinDate,
+        rentDueDay: String(
+          initialTenant.rentDueDay
+            ?? (initialTenant.joinDate ? Number(initialTenant.joinDate.slice(8, 10)) : 1)
+        ),
         admissionFee: initialTenant.admissionFee ?? '500',
         depositAmount: initialTenant.depositAmount ?? '',
         moveInCollection: initialTenant.moveInCollection ?? '',
@@ -277,6 +282,7 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
       ...form,
       phone: normalizePhone(form.phone),
       monthlyRent: Number(form.monthlyRent),
+      rentDueDay: Number(form.rentDueDay || form.joinDate?.slice(8, 10) || 1),
       admissionFee: Number(form.admissionFee || 0),
       depositAmount: Number(form.depositAmount || 0),
       moveInCollection: Number(form.moveInCollection || 0),
@@ -343,10 +349,33 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
               required
               type="date"
               value={form.joinDate}
-              onChange={e => set('joinDate', e.target.value)}
+              onChange={e => {
+                const d = e.target.value;
+                set('joinDate', d);
+                // Auto-sync rent due day for new tenants (operator can override)
+                if (!initialTenant && d) set('rentDueDay', String(Number(d.slice(8, 10))));
+              }}
               className={inputCls}
             />
           </label>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block">
+            <Label>Rent Due Day <span className="text-slate2 font-normal">(day of month)</span></Label>
+            <input
+              required
+              type="number"
+              min="1"
+              max="28"
+              value={form.rentDueDay}
+              onChange={e => set('rentDueDay', e.target.value)}
+              className={`mt-1.5 ${inputCls}`}
+              placeholder="e.g. 5"
+            />
+            <p className="mt-1 text-xs text-slate2">Rent is due on this day every month</p>
+          </label>
+          <div />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
