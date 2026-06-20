@@ -65,14 +65,17 @@ export async function fetchPaymentRecords(propertyId, yearMonth) {
 
   const query = supabase
     .from('payment_records')
-    .select('*, tenant:tenants(name, phone), occupancy:occupancies(monthly_rent, rent_due_day, room:rooms(room_number), bed:beds(bed_number))')
+    .select('*, tenant:tenants(name, phone, status), occupancy:occupancies(monthly_rent, rent_due_day, status, room:rooms(room_number), bed:beds(bed_number))')
     .eq('month', yearMonth);
   if (propertyId) query.eq('property_id', propertyId);
 
   const { data, error } = await query;
   if (error) throw error;
 
-  return data.map(r => ({
+  // Exclude vacated tenants — occupancy ended or tenant archived after move-out
+  const active = data.filter(r => r.occupancy?.status === 'active' && r.tenant?.status === 'active');
+
+  return active.map(r => ({
     id: r.id,
     tenantId: r.tenant_id,
     name: r.tenant?.name ?? '—',
