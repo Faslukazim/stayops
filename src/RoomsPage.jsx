@@ -156,7 +156,7 @@ function MoveBedForm({ tenant, fromRoomId, rooms, onConfirm, onCancel, saving })
 
 // ─── Bed row ──────────────────────────────────────────────────────────────────
 
-function BedRow({ bed, roomNumber, roomId, rooms, onMarkPaid, onMarkUnpaid, onVacate, onMove }) {
+function BedRow({ bed, roomNumber, roomId, rooms, onMarkPaid, onMarkUnpaid, onVacate, onMove, onViewTenant }) {
   const occ = bed.occupancy;
   const tenant = bed.tenant;
   const isPaid = occ?.payment_status === 'Paid';
@@ -197,13 +197,19 @@ function BedRow({ bed, roomNumber, roomId, rooms, onMarkPaid, onMarkUnpaid, onVa
         </div>
 
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-ink truncate">{tenant.name}</p>
+          <button
+            type="button"
+            onClick={() => onViewTenant?.(tenant.id)}
+            className="text-sm font-semibold text-ink truncate hover:underline text-left w-full"
+          >
+            {tenant.name}
+          </button>
           <p className="text-xs text-slate2 tabular-nums">
             {fmt(occ.monthly_rent)}/mo · since {occ.start_date}
           </p>
         </div>
 
-        <div className="flex items-center gap-0.5 shrink-0">
+        <div className="flex items-center gap-1 shrink-0">
           <PaymentToggleBtn
             isPaid={isPaid}
             onMarkPaid={() => onMarkPaid({ tenantId: tenant.id, name: tenant.name, roomNumber, bedNumber: bed.bed_number, monthlyRent: occ.monthly_rent })}
@@ -216,24 +222,30 @@ function BedRow({ bed, roomNumber, roomId, rooms, onMarkPaid, onMarkUnpaid, onVa
             bedNumber={bed.bed_number}
             rent={occ.monthly_rent}
           />
-          <IconBtn
-            variant="ghost"
-            title="Move tenant"
+          <button
+            type="button"
+            title="Move tenant to another bed"
             onClick={() => setMoving(v => !v)}
+            className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+              moving ? 'bg-ink text-white' : 'text-slate2 hover:text-ink hover:bg-mist'
+            }`}
           >
-            <ArrowRightLeft className={`h-4 w-4 ${moving ? 'text-ink' : ''}`} />
-          </IconBtn>
-          <IconBtn
-            variant="danger"
-            title="Vacate"
+            <ArrowRightLeft className="h-3.5 w-3.5" />
+            Move
+          </button>
+          <button
+            type="button"
+            title="Vacate tenant"
             onClick={() => setConfirming(true)}
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold text-coral hover:bg-coral/10 transition-colors"
           >
-            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
               <polyline points="16 17 21 12 16 7" />
               <line x1="21" y1="12" x2="9" y2="12" />
             </svg>
-          </IconBtn>
+            Vacate
+          </button>
         </div>
       </div>
 
@@ -261,7 +273,7 @@ function BedRow({ bed, roomNumber, roomId, rooms, onMarkPaid, onMarkUnpaid, onVa
 
 // ─── Room detail panel ────────────────────────────────────────────────────────
 
-function RoomDetail({ room, rooms, selectedPropertyId, onClose, onAssign, onRoomUpdate }) {
+function RoomDetail({ room, rooms, selectedPropertyId, onClose, onAssign, onRoomUpdate, onViewTenant }) {
   const occupied = room.beds.filter(b => b.tenant).length;
   const capacity = room.beds.length;
   const unpaid = room.beds.filter(b => b.occupancy?.payment_status === 'Unpaid').length;
@@ -350,6 +362,7 @@ function RoomDetail({ room, rooms, selectedPropertyId, onClose, onAssign, onRoom
             onMarkUnpaid={handleMarkUnpaid}
             onVacate={handleVacate}
             onMove={handleMove}
+            onViewTenant={onViewTenant}
           />
         ))}
       </div>
@@ -399,7 +412,7 @@ function RoomDetail({ room, rooms, selectedPropertyId, onClose, onAssign, onRoom
 
 // ─── Rooms page ───────────────────────────────────────────────────────────────
 
-export default function RoomsPage({ selectedPropertyId, onAssignBed }) {
+export default function RoomsPage({ selectedPropertyId, onAssignBed, onViewTenant }) {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -475,6 +488,7 @@ export default function RoomsPage({ selectedPropertyId, onAssignBed }) {
             onClose={() => setSelectedRoom(null)}
             onAssign={handleAssign}
             onRoomUpdate={load}
+            onViewTenant={onViewTenant}
           />
         </Card>
       </div>
@@ -508,6 +522,7 @@ export default function RoomsPage({ selectedPropertyId, onAssignBed }) {
               onClose={() => setSelectedRoom(null)}
               onAssign={handleAssign}
               onRoomUpdate={load}
+              onViewTenant={onViewTenant}
             />
           ) : (
             <EmptyState

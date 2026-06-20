@@ -122,6 +122,18 @@ export async function markRecordUnpaid(recordId) {
  * Sync occupancy.payment_status when a record is marked paid/unpaid via Finance tab.
  * Keeps Dashboard counts consistent with Finance page counts.
  */
+export async function fetchTenantPaymentHistory(tenantId, limit = 12) {
+  if (!hasSupabaseConfig) return [];
+  const { data, error } = await supabase
+    .from('payment_records')
+    .select('month, amount, amount_collected, deduction_reason, status, paid_at, due_day')
+    .eq('tenant_id', tenantId)
+    .order('month', { ascending: false })
+    .limit(limit);
+  if (error) return [];
+  return data;
+}
+
 export async function syncOccupancyPaymentStatus(tenantId, status) {
   if (!hasSupabaseConfig) return;
   const patch = status === 'Paid'

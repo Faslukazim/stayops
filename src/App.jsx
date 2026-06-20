@@ -12,6 +12,7 @@ import { hasSupabaseConfig } from './lib/supabase';
 import { STATUS, computeTenantStatus, tenantDaysOverdue } from './utils/paymentStatus';
 import RoomsPage from './RoomsPage';
 import FinancePage from './FinancePage';
+import TenantProfile from './TenantProfile';
 import {
   fmt, Label, Card, SectionHeader, Btn, IconBtn,
   StatusBadge, WhatsAppLink,
@@ -151,7 +152,7 @@ function TopNav({ active, onChange }) {
 
 // ─── bed selector ────────────────────────────────────────────────────────────
 
-function BedSelector({ properties, propertyId, roomId, bedId, onPropertyChange, onRoomChange, onBedChange }) {
+function BedSelector({ properties, propertyId, roomId, bedId, onPropertyChange, onRoomChange, onBedChange, editingBedId }) {
   const [rooms, setRooms] = useState([]);
   const [loadingRooms, setLoadingRooms] = useState(false);
 
@@ -165,7 +166,10 @@ function BedSelector({ properties, propertyId, roomId, bedId, onPropertyChange, 
   }, [propertyId]);
 
   const selectedRoom = rooms.find(r => r.id === roomId);
-  const availableBeds = selectedRoom?.beds?.filter(b => b.status === 'available') ?? [];
+  // When editing, include the tenant's own bed even if status='occupied'
+  const availableBeds = selectedRoom?.beds?.filter(
+    b => b.status === 'available' || b.id === editingBedId
+  ) ?? [];
 
   const selectCls = 'w-full appearance-none rounded-lg border border-border bg-white px-3 py-2.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink disabled:bg-mist disabled:text-slate2';
 
@@ -182,7 +186,8 @@ function BedSelector({ properties, propertyId, roomId, bedId, onPropertyChange, 
       onChange: e => { onRoomChange(e.target.value); onBedChange(''); },
       disabled: !propertyId || loadingRooms,
       options: rooms.map(r => {
-        const free = r.beds?.filter(b => b.status === 'available').length ?? 0;
+        // When editing, count the current bed as available for its room
+        const free = r.beds?.filter(b => b.status === 'available' || b.id === editingBedId).length ?? 0;
         return { value: r.id, label: `Room ${r.room_number} (${free} free)`, disabled: free === 0 };
       }),
       placeholder: loadingRooms ? 'Loading…' : 'Select room',
@@ -336,6 +341,7 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
           onPropertyChange={v => set('propertyId', v)}
           onRoomChange={v => set('roomId', v)}
           onBedChange={v => set('bedId', v)}
+          editingBedId={initialTenant?.bedId}
         />
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -711,7 +717,7 @@ const ATTENTION_META = {
   [STATUS.DUE_SOON]: { label: 'Due Soon',  labelColor: 'text-amber', badgeCls: 'bg-amber/8 text-amber'  },
 };
 
-function AttentionRequired({ tenants, onMarkPaid }) {
+function AttentionRequired({ tenants, onMarkPaid, onViewTenant }) {
   const [remindExpanded, setRemindExpanded] = useState(false);
 
   // Group tenants by their computed status — same logic as Finance page
@@ -778,8 +784,14 @@ function AttentionRequired({ tenants, onMarkPaid }) {
               <div key={t.id} className="flex items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="font-semibold text-ink truncate">{t.name}</p>
-                    <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full ${meta.badgeCls}`}>{meta.label}</span>
+                    <button
+                      type="button"
+                      onClick={() => onViewTenant(t.id)}
+                      className="font-semibold text-ink truncate hover:underline text-left"
+                    >
+                      {t.name}
+                    </button>
+                    <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full shrink-0 ${meta.badgeCls}`}>{meta.label}</span>
                   </div>
                   <p className="text-xs text-slate2">Room {t.roomNumber} · {fmt(t.monthlyRent)}</p>
                   {st === STATUS.OVERDUE && daysOd > 0 && (
@@ -878,11 +890,11 @@ function RecentActivity({ propertyId }) {
   );
 }
 
-function DashboardPage({ tenants, totalBeds, selectedPropertyId, onGoToFinance, onGoToRooms, onAddTenant, onAssignTenant, onMarkPaid }) {
+function DashboardPage({ tenants, totalBeds, selectedPropertyId, onGoToFinance, onGoToRooms, onAddTenant, onAssignTenant, onMarkPaid, onViewTenant }) {
   return (
     <div className="flex flex-col gap-4">
       <BusinessHealth tenants={tenants} totalBeds={totalBeds} />
-      <AttentionRequired tenants={tenants} onMarkPaid={onMarkPaid} />
+      <AttentionRequired tenants={tenants} onMarkPaid={onMarkPaid} onViewTenant={onViewTenant} />
       <MoveInHealth tenants={tenants} />
       <FinancialHealth selectedPropertyId={selectedPropertyId} totalBeds={totalBeds} tenants={tenants} />
       <QuickActions
@@ -995,6 +1007,8 @@ export default function App() {
   const [enteringPage, setEnteringPage] = useState(page);
   const [roomsVersion, setRoomsVersion] = useState(0);
   const [collectingTenant, setCollectingTenant] = useState(null);
+  const [viewingTenantId, setViewingTenantId] = useState(null);
+  const viewingTenant = viewingTenantId ? tenants.find(t => t.id === viewingTenantId) ?? null : null;
 
   useEffect(() => {
     if (!hasSupabaseConfig) { setLoadingProperties(false); return; }
@@ -1138,6 +1152,7 @@ export default function App() {
                   onGoToRooms={() => navigateTo('rooms')}
                   onAssignTenant={() => navigateTo('rooms')}
                   onMarkPaid={setCollectingTenant}
+                  onViewTenant={setViewingTenantId}
                   onAddTenant={() => {
                     setEditingTenant(null);
                     setRoomPrefill(null);
@@ -1151,6 +1166,7 @@ export default function App() {
                     key={`${selectedPropertyId}-${roomsVersion}`}
                     selectedPropertyId={selectedPropertyId}
                     onAssignBed={prefill => { setRoomPrefill(prefill); navigateTo('tenants'); }}
+                    onViewTenant={setViewingTenantId}
                   />
                 )}
               </div>
@@ -1175,7 +1191,7 @@ export default function App() {
               </div>
               <div className={page !== 'finance' ? 'hidden' : enteringPage === 'finance' ? 'page-enter' : undefined}>
                 {mountedPages.has('finance') && (
-                  <FinancePage selectedPropertyId={selectedPropertyId} tenants={tenants} />
+                  <FinancePage selectedPropertyId={selectedPropertyId} tenants={tenants} onViewTenant={setViewingTenantId} />
                 )}
               </div>
             </>
@@ -1188,6 +1204,21 @@ export default function App() {
           record={{ amount: collectingTenant.monthlyRent, name: collectingTenant.name, roomNumber: collectingTenant.roomNumber, bedNumber: collectingTenant.bedNumber }}
           onConfirm={handleTenantMarkPaid}
           onCancel={() => setCollectingTenant(null)}
+        />
+      )}
+
+      {viewingTenant && (
+        <TenantProfile
+          tenant={viewingTenant}
+          properties={properties}
+          onClose={() => setViewingTenantId(null)}
+          onCollect={(t, amt, reason) => {
+            const currentYM = new Date().toISOString().slice(0, 7);
+            patchPayment(t, 'Paid');
+            markTenantRecordPaid(t.id, currentYM, amt, reason).catch(console.error);
+          }}
+          onEdit={t => { setViewingTenantId(null); setEditingTenant(t); navigateTo('tenants'); }}
+          onDelete={t => { setViewingTenantId(null); handleDelete(t); }}
         />
       )}
 
