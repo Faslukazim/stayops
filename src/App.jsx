@@ -1,13 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BarChart2, BedDouble, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight,
-  Home, Loader2, LogOut, MessageCircle, Pencil, Plus, Save, Trash2, UserPlus, Users, X,
+  Home, Loader2, LogOut, MessageCircle, Pencil, Plus, Save, Sparkles, Trash2, UserPlus, Users, X,
 } from 'lucide-react';
 import { createTenant, deleteTenant, fetchTenants, forfeitDeposit, returnDeposit, updateTenant } from './services/tenantService';
 import { markTenantRecordPaid } from './services/paymentService';
 import { logActivity, fetchRecentActivity } from './services/activityService';
 import { fetchProperties, fetchRoomsWithBeds } from './services/propertyService';
 import { readExpensesSync } from './services/financeService';
+import { seedSampleWorkspace, clearSampleWorkspace } from './services/seedService';
 import { hasSupabaseConfig } from './lib/supabase';
 import { STATUS, computeTenantStatus, tenantDaysOverdue } from './utils/paymentStatus';
 import RoomsPage from './RoomsPage';
@@ -994,6 +995,31 @@ function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, sa
   );
 }
 
+// ─── empty workspace (new org / after clearing demo) ─────────────────────────
+
+function EmptyWorkspace({ onSeed, seeding }) {
+  return (
+    <div className="flex justify-center pt-6">
+      <Card className="w-full max-w-md p-6 text-center">
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-mist">
+          <BedDouble className="h-6 w-6 text-ink" />
+        </div>
+        <h2 className="text-lg font-bold text-ink">Welcome to StayOps</h2>
+        <p className="mt-1.5 text-sm text-slate2">
+          Your workspace is empty. Load a sample hostel — rooms, tenants, and this month&apos;s rent — to see how StayOps works.
+        </p>
+        <Btn variant="primary" className="mt-4 w-full justify-center py-3" onClick={onSeed} disabled={seeding}>
+          {seeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          Load sample workspace
+        </Btn>
+        <p className="mt-2 text-xs text-slate2">
+          Adds &ldquo;Sample Hostel&rdquo; with 3 rooms, 6 tenants, and live rent statuses — clearly labelled demo data you can remove anytime.
+        </p>
+      </Card>
+    </div>
+  );
+}
+
 // ─── root ────────────────────────────────────────────────────────────────────
 
 export default function App({ session, organizationName, onSignOut } = {}) {
@@ -1020,6 +1046,7 @@ export default function App({ session, organizationName, onSignOut } = {}) {
   const [collectingTenant, setCollectingTenant] = useState(null);
   const [viewingTenantId, setViewingTenantId] = useState(null);
   const [toast, setToast] = useState('');
+  const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
     if (!toast) return;
@@ -1028,20 +1055,27 @@ export default function App({ session, organizationName, onSignOut } = {}) {
   }, [toast]);
   const viewingTenant = viewingTenantId ? tenants.find(t => t.id === viewingTenantId) ?? null : null;
 
-  useEffect(() => {
-    if (!hasSupabaseConfig) { setLoadingProperties(false); return; }
-    fetchProperties()
-      .then(data => {
-        setProperties(data);
-        if (data.length > 0) {
-          const saved = localStorage.getItem('stayops_property');
-          const valid = saved && data.find(p => p.id === saved);
-          if (!valid) setSelectedPropertyId(data[0].id);
-        }
-      })
-      .catch(e => setError(e.message))
-      .finally(() => setLoadingProperties(false));
+  const loadProperties = useCallback(async () => {
+    if (!hasSupabaseConfig) { setLoadingProperties(false); return []; }
+    setLoadingProperties(true);
+    try {
+      const data = await fetchProperties();
+      setProperties(data);
+      setSelectedPropertyId(cur => {
+        if (data.length === 0) return '';
+        const valid = cur && data.find(p => p.id === cur);
+        return valid ? cur : data[0].id;
+      });
+      return data;
+    } catch (e) {
+      setError(e.message);
+      return [];
+    } finally {
+      setLoadingProperties(false);
+    }
   }, []);
+
+  useEffect(() => { loadProperties(); }, [loadProperties]);
 
   useEffect(() => {
     if (selectedPropertyId) localStorage.setItem('stayops_property', selectedPropertyId);
@@ -1068,6 +1102,34 @@ export default function App({ session, organizationName, onSignOut } = {}) {
     if (selectedPropertyId) return properties.find(p => p.id === selectedPropertyId)?.total_beds ?? 0;
     return properties.reduce((s, p) => s + (p.total_beds ?? 0), 0);
   }, [properties, selectedPropertyId]);
+
+  const selectedProperty = useMemo(
+    () => properties.find(p => p.id === selectedPropertyId) ?? null,
+    [properties, selectedPropertyId],
+  );
+  const isDemoProperty = Boolean(selectedProperty?.is_demo);
+
+  async function handleSeed() {
+    setSeeding(true); setError('');
+    try {
+      await seedSampleWorkspace();
+      localStorage.removeItem('stayops_property');
+      setSelectedPropertyId('');
+      await loadProperties();
+    } catch (e) { setError(e.message); }
+    finally { setSeeding(false); }
+  }
+
+  async function handleClearDemo() {
+    setSeeding(true); setError('');
+    try {
+      await clearSampleWorkspace();
+      localStorage.removeItem('stayops_property');
+      setSelectedPropertyId('');
+      await loadProperties();
+    } catch (e) { setError(e.message); }
+    finally { setSeeding(false); }
+  }
 
   async function handleAdd(tenant) {
     setSaving(true); setError('');
@@ -1159,10 +1221,24 @@ export default function App({ session, organizationName, onSignOut } = {}) {
           </div>
         )}
 
-        {loading
+        {loading || loadingProperties
           ? <PageLoader />
+          : properties.length === 0 && hasSupabaseConfig
+          ? <EmptyWorkspace onSeed={handleSeed} seeding={seeding} />
           : (
             <>
+              {isDemoProperty && (
+                <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber/30 bg-amber/5 px-4 py-2.5">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <Sparkles className="h-4 w-4 shrink-0 text-amber" />
+                    <p className="truncate text-sm font-medium text-amber">Sample demo data — explore freely.</p>
+                  </div>
+                  <Btn variant="secondary" size="sm" onClick={handleClearDemo} disabled={seeding} className="shrink-0">
+                    {seeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                    Clear demo data
+                  </Btn>
+                </div>
+              )}
               <div className={page !== 'dashboard' ? 'hidden' : enteringPage === 'dashboard' ? 'page-enter' : undefined}>
                 <DashboardPage
                   tenants={tenants}
