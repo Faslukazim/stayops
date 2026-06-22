@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   BarChart2, BedDouble, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight,
-  Home, Loader2, MessageCircle, Pencil, Plus, Save, Trash2, UserPlus, Users, X,
+  Home, Loader2, LogOut, MessageCircle, Pencil, Plus, Save, Trash2, UserPlus, Users, X,
 } from 'lucide-react';
 import { createTenant, deleteTenant, fetchTenants, forfeitDeposit, returnDeposit, updateTenant } from './services/tenantService';
 import { markTenantRecordPaid } from './services/paymentService';
@@ -60,19 +60,30 @@ function StayOpsLogo() {
   );
 }
 
-function Header({ properties, selectedPropertyId, onPropertyChange, loadingProperties }) {
-  const prop = properties.find(p => p.id === selectedPropertyId);
+function Header({ properties, selectedPropertyId, onPropertyChange, loadingProperties, onSignOut }) {
   return (
     <header className="bg-ink text-white px-4 py-3.5 sm:px-6">
       <div className="mx-auto max-w-5xl">
         <div className="flex items-center justify-between gap-4">
           <StayOpsLogo />
-          <PropertyPill
-            properties={properties}
-            selectedId={selectedPropertyId}
-            onChange={onPropertyChange}
-            loading={loadingProperties}
-          />
+          <div className="flex items-center gap-2">
+            <PropertyPill
+              properties={properties}
+              selectedId={selectedPropertyId}
+              onChange={onPropertyChange}
+              loading={loadingProperties}
+            />
+            {onSignOut && (
+              <button
+                type="button"
+                onClick={onSignOut}
+                title="Sign out"
+                className="inline-flex items-center justify-center rounded-lg bg-white/10 p-2 text-white/70 border border-white/15 hover:bg-white/20 hover:text-white transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </header>
@@ -985,7 +996,7 @@ function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, sa
 
 // ─── root ────────────────────────────────────────────────────────────────────
 
-export default function App() {
+export default function App({ session, organizationName, onSignOut } = {}) {
   const [page, setPage] = useState(() => {
     const saved = localStorage.getItem('stayops_page');
     // 'payments' is now 'finance' — migrate old saved value
@@ -1134,6 +1145,7 @@ export default function App() {
         selectedPropertyId={selectedPropertyId}
         onPropertyChange={setSelectedPropertyId}
         loadingProperties={loadingProperties}
+        onSignOut={onSignOut}
       />
       <TopNav active={page} onChange={navigateTo} />
 
