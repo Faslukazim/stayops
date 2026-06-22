@@ -3,10 +3,10 @@ import {
   BarChart2, BedDouble, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight,
   Home, Loader2, LogOut, MessageCircle, Pencil, Plus, Save, Sparkles, Trash2, UserPlus, Users, X,
 } from 'lucide-react';
-import { createTenant, deleteTenant, fetchTenants, forfeitDeposit, returnDeposit, updateTenant } from './services/tenantService';
+import { createTenant, deleteTenant, fetchTenants, fetchVacatedTenants, forfeitDeposit, returnDeposit, updateTenant } from './services/tenantService';
 import { markTenantRecordPaid } from './services/paymentService';
 import { logActivity, fetchRecentActivity } from './services/activityService';
-import { fetchProperties, fetchRoomsWithBeds } from './services/propertyService';
+import { fetchProperties, fetchRoomsWithBeds, updatePropertyUpiId } from './services/propertyService';
 import { readExpensesSync } from './services/financeService';
 import { seedSampleWorkspace, clearSampleWorkspace } from './services/seedService';
 import { hasSupabaseConfig } from './lib/supabase';
@@ -432,7 +432,7 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
 
 // ─── tenant card ─────────────────────────────────────────────────────────────
 
-function TenantCard({ tenant, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onReturnDeposit, onForfeitDeposit }) {
+function TenantCard({ tenant, upiId, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onReturnDeposit, onForfeitDeposit }) {
   const isPaid = tenant.paymentStatus === 'Paid';
   const hasDeposit = tenant.depositAmount > 0;
   const depositHeld = hasDeposit && tenant.depositStatus === 'held';
@@ -561,6 +561,7 @@ function TenantCard({ tenant, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onRetu
             roomNumber={tenant.roomNumber}
             bedNumber={tenant.bedNumber}
             rent={tenant.monthlyRent}
+            upiId={upiId}
           />
           <IconBtn variant="ghost" onClick={() => onEdit(tenant)} title="Edit">
             <Pencil className="h-4 w-4" />
@@ -729,7 +730,7 @@ const ATTENTION_META = {
   [STATUS.DUE_SOON]: { label: 'Due Soon',  labelColor: 'text-amber', badgeCls: 'bg-amber/8 text-amber'  },
 };
 
-function AttentionRequired({ tenants, onMarkPaid, onViewTenant }) {
+function AttentionRequired({ tenants, upiId, onMarkPaid, onViewTenant }) {
   const [remindExpanded, setRemindExpanded] = useState(false);
 
   // Group tenants by their computed status — same logic as Finance page
@@ -819,7 +820,7 @@ function AttentionRequired({ tenants, onMarkPaid, onViewTenant }) {
                   )}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  <WhatsAppLink name={t.name} phone={t.phone} roomNumber={t.roomNumber} bedNumber={t.bedNumber} rent={t.monthlyRent} />
+                  <WhatsAppLink name={t.name} phone={t.phone} roomNumber={t.roomNumber} bedNumber={t.bedNumber} rent={t.monthlyRent} upiId={upiId} />
                   <Btn size="sm" variant="filled-success" onClick={() => onMarkPaid(t)}>Mark Paid</Btn>
                 </div>
               </div>
@@ -902,11 +903,11 @@ function RecentActivity({ propertyId }) {
   );
 }
 
-function DashboardPage({ tenants, totalBeds, selectedPropertyId, onGoToFinance, onGoToRooms, onAddTenant, onAssignTenant, onMarkPaid, onViewTenant }) {
+function DashboardPage({ tenants, totalBeds, selectedPropertyId, upiId, onGoToFinance, onGoToRooms, onAddTenant, onAssignTenant, onMarkPaid, onViewTenant }) {
   return (
     <div className="flex flex-col gap-4">
       <BusinessHealth tenants={tenants} totalBeds={totalBeds} />
-      <AttentionRequired tenants={tenants} onMarkPaid={onMarkPaid} onViewTenant={onViewTenant} />
+      <AttentionRequired tenants={tenants} upiId={upiId} onMarkPaid={onMarkPaid} onViewTenant={onViewTenant} />
       <MoveInHealth tenants={tenants} />
       <FinancialHealth selectedPropertyId={selectedPropertyId} totalBeds={totalBeds} tenants={tenants} />
       <QuickActions
@@ -920,8 +921,62 @@ function DashboardPage({ tenants, totalBeds, selectedPropertyId, onGoToFinance, 
   );
 }
 
-function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, saving, roomPrefill, onAddTenant, onUpdateTenant, onCancelEdit, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onReturnDeposit, onForfeitDeposit }) {
+function UpiSettings({ propertyId, upiId, onSave }) {
+  const [val, setVal] = useState(upiId ?? '');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => { setVal(upiId ?? ''); }, [upiId]);
+
+  async function handleSave(e) {
+    e.preventDefault();
+    setSaving(true);
+    await onSave(val.trim());
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  return (
+    <Card className="overflow-hidden">
+      <SectionHeader title="Property Settings" />
+      <form onSubmit={handleSave} className="p-4 flex flex-col gap-3">
+        <label className="block">
+          <Label>GPay / UPI ID</Label>
+          <p className="text-xs text-slate2 mt-0.5 mb-1.5">Added to WhatsApp rent reminders so tenants can pay instantly.</p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={val}
+              onChange={e => setVal(e.target.value)}
+              placeholder="yourname@okicici"
+              className="flex-1 rounded-lg border border-border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink"
+            />
+            <Btn variant="primary" disabled={saving} {...{ type: 'submit' }}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <CheckCircle2 className="h-4 w-4 text-leaf" /> : <Save className="h-4 w-4" />}
+              {saved ? 'Saved' : 'Save'}
+            </Btn>
+          </div>
+        </label>
+      </form>
+    </Card>
+  );
+}
+
+function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, saving, roomPrefill, upiId, onAddTenant, onUpdateTenant, onCancelEdit, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onReturnDeposit, onForfeitDeposit, selectedPropertyId }) {
   const [query, setQuery] = useState('');
+  const [showPast, setShowPast] = useState(false);
+  const [vacated, setVacated] = useState([]);
+  const [loadingVacated, setLoadingVacated] = useState(false);
+
+  useEffect(() => {
+    if (!showPast) return;
+    setLoadingVacated(true);
+    fetchVacatedTenants(selectedPropertyId)
+      .then(setVacated)
+      .catch(console.error)
+      .finally(() => setLoadingVacated(false));
+  }, [showPast, selectedPropertyId]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -932,6 +987,12 @@ function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, sa
       String(t.roomNumber).toLowerCase().includes(q)
     );
   }, [tenants, query]);
+
+  const filteredVacated = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return vacated;
+    return vacated.filter(t => t.name.toLowerCase().includes(q) || t.phone.includes(q));
+  }, [vacated, query]);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[380px_1fr]">
@@ -945,48 +1006,92 @@ function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, sa
         saving={saving}
       />
       <div className="flex flex-col gap-3">
-        <div className="relative">
-          <svg className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-          </svg>
-          <input
-            type="search"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search by name, phone, or room…"
-            className="w-full rounded-lg border border-border bg-white pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink"
-          />
-          {query && (
-            <button
-              type="button"
-              onClick={() => setQuery('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate2 hover:text-ink"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <svg className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input
+              type="search"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search by name, phone, or room…"
+              className="w-full rounded-lg border border-border bg-white pl-9 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink"
+            />
+            {query && (
+              <button type="button" onClick={() => setQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate2 hover:text-ink">
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowPast(v => !v)}
+            className={`shrink-0 rounded-lg border px-3 py-2.5 text-sm font-semibold transition-colors ${showPast ? 'bg-ink text-white border-ink' : 'border-border text-slate2 hover:text-ink hover:bg-mist'}`}
+          >
+            {showPast ? 'Active' : 'Past'}
+          </button>
         </div>
 
-        {tenants.length === 0 ? (
-          <Card><EmptyState icon={Users} title="No tenants yet" body="Add your first tenant using the form on the left." /></Card>
-        ) : filtered.length === 0 ? (
-          <Card><EmptyState icon={Users} title={`No results for "${query}"`} body="Try a different name, phone number, or room." /></Card>
+        {!showPast ? (
+          tenants.length === 0 ? (
+            <Card><EmptyState icon={Users} title="No tenants yet" body="Add your first tenant using the form on the left." /></Card>
+          ) : filtered.length === 0 ? (
+            <Card><EmptyState icon={Users} title={`No results for "${query}"`} body="Try a different name, phone number, or room." /></Card>
+          ) : (
+            <>
+              {query && <p className="text-xs text-slate2 px-1">{filtered.length} of {tenants.length} tenants</p>}
+              {filtered.map(t => (
+                <TenantCard
+                  key={t.id}
+                  tenant={t}
+                  upiId={upiId}
+                  onEdit={onEdit}
+                  onDelete={onDelete}
+                  onMarkPaid={onMarkPaid}
+                  onMarkUnpaid={onMarkUnpaid}
+                  onReturnDeposit={onReturnDeposit}
+                  onForfeitDeposit={onForfeitDeposit}
+                />
+              ))}
+            </>
+          )
+        ) : loadingVacated ? (
+          <Card><div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-slate2" /></div></Card>
+        ) : filteredVacated.length === 0 ? (
+          <Card><EmptyState icon={Users} title="No past tenants" body="Vacated tenants will appear here." /></Card>
         ) : (
           <>
-            {query && (
-              <p className="text-xs text-slate2 px-1">{filtered.length} of {tenants.length} tenants</p>
-            )}
-            {filtered.map(t => (
-              <TenantCard
-                key={t.id}
-                tenant={t}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                onMarkPaid={onMarkPaid}
-                onMarkUnpaid={onMarkUnpaid}
-                onReturnDeposit={onReturnDeposit}
-                onForfeitDeposit={onForfeitDeposit}
-              />
+            {query && <p className="text-xs text-slate2 px-1">{filteredVacated.length} past tenants</p>}
+            {filteredVacated.map(t => (
+              <Card key={t.id} className="overflow-hidden opacity-80">
+                <div className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-ink truncate">{t.name}</p>
+                      <p className="text-sm text-slate2">{t.phone}</p>
+                    </div>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded bg-mist text-slate2 shrink-0">Vacated</span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-mist p-3">
+                    <div><Label>Room</Label><p className="mt-0.5 font-semibold">{t.roomNumber}</p></div>
+                    <div><Label>Bed</Label><p className="mt-0.5 font-semibold">{t.bedNumber}</p></div>
+                    <div><Label>Rent</Label><p className="mt-0.5 font-semibold tabular-nums">{fmt(t.monthlyRent)}</p></div>
+                  </div>
+                  <div className="mt-2 flex gap-4 text-xs text-slate2">
+                    {t.joinDate && <span>Joined {t.joinDate}</span>}
+                    {t.endDate && <span>· Left {t.endDate}</span>}
+                  </div>
+                  {t.depositAmount > 0 && (
+                    <div className="mt-2 flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                      <div><Label>Deposit</Label><p className="mt-0.5 text-sm font-semibold tabular-nums">{fmt(t.depositAmount)}</p></div>
+                      <span className={`text-xs font-semibold ${t.depositStatus === 'returned' ? 'text-leaf' : t.depositStatus === 'forfeited' ? 'text-coral' : 'text-amber'}`}>
+                        {t.depositStatus === 'returned' ? 'Returned' : t.depositStatus === 'forfeited' ? 'Not refundable' : 'Pending'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </Card>
             ))}
           </>
         )}
@@ -1047,6 +1152,7 @@ export default function App({ session, organizationName, onSignOut } = {}) {
   const [viewingTenantId, setViewingTenantId] = useState(null);
   const [toast, setToast] = useState('');
   const [seeding, setSeeding] = useState(false);
+  const [upiId, setUpiId] = useState('');
 
   useEffect(() => {
     if (!toast) return;
@@ -1079,11 +1185,12 @@ export default function App({ session, organizationName, onSignOut } = {}) {
 
   useEffect(() => {
     if (selectedPropertyId) localStorage.setItem('stayops_property', selectedPropertyId);
-    setLoading(cur => cur); // keep existing spinner state; only show spinner if already loading
+    setUpiId(properties.find(p => p.id === selectedPropertyId)?.upi_id ?? '');
+    setLoading(cur => cur);
     fetchTenants(selectedPropertyId || null)
       .then(data => { setTenants(data); setLoading(false); })
       .catch(e => { setError(e.message); setLoading(false); });
-  }, [selectedPropertyId]);
+  }, [selectedPropertyId, properties]);
 
   useEffect(() => {
     if (!enteringPage) return;
@@ -1129,6 +1236,14 @@ export default function App({ session, organizationName, onSignOut } = {}) {
       await loadProperties();
     } catch (e) { setError(e.message); }
     finally { setSeeding(false); }
+  }
+
+  async function handleSaveUpi(newUpiId) {
+    try {
+      await updatePropertyUpiId(selectedPropertyId, newUpiId);
+      setUpiId(newUpiId);
+      setProperties(cur => cur.map(p => p.id === selectedPropertyId ? { ...p, upi_id: newUpiId || null } : p));
+    } catch (e) { setError(e.message); }
   }
 
   async function handleAdd(tenant) {
@@ -1244,6 +1359,7 @@ export default function App({ session, organizationName, onSignOut } = {}) {
                   tenants={tenants}
                   totalBeds={totalBeds}
                   selectedPropertyId={selectedPropertyId}
+                  upiId={upiId}
                   onGoToFinance={() => navigateTo('finance')}
                   onGoToRooms={() => navigateTo('rooms')}
                   onAssignTenant={() => navigateTo('rooms')}
@@ -1255,12 +1371,16 @@ export default function App({ session, organizationName, onSignOut } = {}) {
                     navigateTo('tenants');
                   }}
                 />
+                <div className="mt-4">
+                  <UpiSettings propertyId={selectedPropertyId} upiId={upiId} onSave={handleSaveUpi} />
+                </div>
               </div>
               <div className={page !== 'rooms' ? 'hidden' : enteringPage === 'rooms' ? 'page-enter' : undefined}>
                 {mountedPages.has('rooms') && (
                   <RoomsPage
                     key={`${selectedPropertyId}-${roomsVersion}`}
                     selectedPropertyId={selectedPropertyId}
+                    upiId={upiId}
                     onAssignBed={prefill => { setRoomPrefill(prefill); navigateTo('tenants'); }}
                     onViewTenant={setViewingTenantId}
                   />
@@ -1271,9 +1391,11 @@ export default function App({ session, organizationName, onSignOut } = {}) {
                   tenants={tenants}
                   properties={properties}
                   defaultPropertyId={selectedPropertyId}
+                  selectedPropertyId={selectedPropertyId}
                   editingTenant={editingTenant}
                   saving={saving}
                   roomPrefill={roomPrefill}
+                  upiId={upiId}
                   onAddTenant={t => { handleAdd(t); setRoomPrefill(null); }}
                   onUpdateTenant={handleUpdate}
                   onCancelEdit={() => setEditingTenant(null)}
@@ -1287,7 +1409,7 @@ export default function App({ session, organizationName, onSignOut } = {}) {
               </div>
               <div className={page !== 'finance' ? 'hidden' : enteringPage === 'finance' ? 'page-enter' : undefined}>
                 {mountedPages.has('finance') && (
-                  <FinancePage selectedPropertyId={selectedPropertyId} tenants={tenants} onViewTenant={setViewingTenantId} />
+                  <FinancePage selectedPropertyId={selectedPropertyId} tenants={tenants} onViewTenant={setViewingTenantId} upiId={upiId} />
                 )}
               </div>
             </>

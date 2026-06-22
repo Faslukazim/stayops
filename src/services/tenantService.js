@@ -238,6 +238,29 @@ export async function moveTenant(tenantId, { roomId, bedId }) {
   return updateTenant(tenantId, { roomId, bedId });
 }
 
+export async function fetchVacatedTenants(propertyId) {
+  if (!hasSupabaseConfig) return [];
+  const query = supabase
+    .from('occupancies')
+    .select(`
+      *,
+      tenant:tenants!inner(*),
+      room:rooms(room_number),
+      bed:beds(bed_number)
+    `)
+    .eq('status', 'ended')
+    .order('end_date', { ascending: false })
+    .limit(50);
+  if (propertyId) query.eq('property_id', propertyId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data.map(o => ({
+    ...toUiTenant(o),
+    endDate: o.end_date ?? null,
+    status: 'vacated',
+  }));
+}
+
 export async function deleteTenant(id) {
   if (!hasSupabaseConfig) {
     writeLocalTenants(readLocalTenants().filter((t) => t.id !== id));

@@ -133,9 +133,10 @@ export function PaymentToggleBtn({ isPaid, onMarkPaid, onMarkUnpaid, showLabel =
 // ─── WhatsAppLink ─────────────────────────────────────────────────────────────
 // Consistent WA reminder link. Used in TenantCard, BedRow, PaymentsPage, RoomDetail.
 
-export function WhatsAppLink({ name, phone, roomNumber, bedNumber, rent, label, className = '' }) {
+export function WhatsAppLink({ name, phone, roomNumber, bedNumber, rent, label, upiId, className = '' }) {
   const p = String(phone).replace(/\D/g, '');
-  const msg = `Hi ${name}, rent reminder for Room ${roomNumber} Bed ${bedNumber}. Monthly rent ${fmt(rent)} is unpaid. Please pay at your earliest.`;
+  const upiLine = upiId ? ` Pay via GPay/UPI: ${upiId}` : '';
+  const msg = `Hi ${name}, rent reminder for Room ${roomNumber} Bed ${bedNumber}. Monthly rent ${fmt(rent)} is unpaid. Please pay at your earliest.${upiLine}`;
   const href = `https://wa.me/${p}?text=${encodeURIComponent(msg)}`;
   return (
     <a

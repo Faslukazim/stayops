@@ -102,7 +102,7 @@ const STATUS_META = {
   [STATUS.UPCOMING]: { label: 'New Tenants (Grace Period)', bg: 'bg-mist', border: 'border-border', text: 'text-slate2', dot: 'bg-slate2/40' },
 };
 
-function RentStatusRow({ r, ym, onMarkPaid, onMarkUnpaid, onViewTenant }) {
+function RentStatusRow({ r, ym, onMarkPaid, onMarkUnpaid, onViewTenant, upiId }) {
   const st = computeRecordStatus(r, ym);
   const daysOd = recordDaysOverdue(r, ym);
   const daysUntil = recordDaysUntilDue(r);
@@ -142,7 +142,7 @@ function RentStatusRow({ r, ym, onMarkPaid, onMarkUnpaid, onViewTenant }) {
       <div className="flex items-center gap-2 shrink-0">
         {st !== STATUS.PAID ? (
           <>
-            <WhatsAppLink name={r.name} phone={r.phone} roomNumber={r.roomNumber} bedNumber={r.bedNumber} rent={r.amount} label="Remind" />
+            <WhatsAppLink name={r.name} phone={r.phone} roomNumber={r.roomNumber} bedNumber={r.bedNumber} rent={r.amount} label="Remind" upiId={upiId} />
             <Btn size="sm" variant="filled-success" onClick={() => onMarkPaid(r)}>Mark Paid</Btn>
           </>
         ) : (
@@ -156,7 +156,7 @@ function RentStatusRow({ r, ym, onMarkPaid, onMarkUnpaid, onViewTenant }) {
   );
 }
 
-function RentSection({ title, meta, records, ym, onMarkPaid, onMarkUnpaid, onViewTenant }) {
+function RentSection({ title, meta, records, ym, onMarkPaid, onMarkUnpaid, onViewTenant, upiId }) {
   if (records.length === 0) return null;
   return (
     <div className={`rounded-xl border overflow-hidden ${meta.border}`}>
@@ -169,14 +169,14 @@ function RentSection({ title, meta, records, ym, onMarkPaid, onMarkUnpaid, onVie
       </div>
       <div className="divide-y divide-border bg-white">
         {records.map(r => (
-          <RentStatusRow key={r.id} r={r} ym={ym} onMarkPaid={onMarkPaid} onMarkUnpaid={onMarkUnpaid} onViewTenant={onViewTenant} />
+          <RentStatusRow key={r.id} r={r} ym={ym} onMarkPaid={onMarkPaid} onMarkUnpaid={onMarkUnpaid} onViewTenant={onViewTenant} upiId={upiId} />
         ))}
       </div>
     </div>
   );
 }
 
-function RentTab({ selectedPropertyId, onViewTenant }) {
+function RentTab({ selectedPropertyId, onViewTenant, upiId }) {
   const cur = ymNow();
   const [ym, setYm] = useState(cur);
   const [records, setRecords] = useState([]);
@@ -279,11 +279,11 @@ function RentTab({ selectedPropertyId, onViewTenant }) {
         <Card><EmptyState icon={CreditCard} title="No records for this month" body="Records are created automatically when tenants are active." /></Card>
       ) : (
         <>
-          <RentSection title="Overdue"   meta={STATUS_META[STATUS.OVERDUE]}   records={overdue}   ym={ym} onMarkPaid={setCollecting} onMarkUnpaid={handleUnpaid} onViewTenant={onViewTenant} />
-          <RentSection title="Due Today" meta={STATUS_META[STATUS.DUE_TODAY]} records={dueToday}  ym={ym} onMarkPaid={setCollecting} onMarkUnpaid={handleUnpaid} onViewTenant={onViewTenant} />
-          <RentSection title="Due Soon"  meta={STATUS_META[STATUS.DUE_SOON]}  records={dueSoon}   ym={ym} onMarkPaid={setCollecting} onMarkUnpaid={handleUnpaid} onViewTenant={onViewTenant} />
-          <RentSection title="Paid"      meta={STATUS_META[STATUS.PAID]}      records={paid}      ym={ym} onMarkPaid={setCollecting} onMarkUnpaid={handleUnpaid} onViewTenant={onViewTenant} />
-          <RentSection title="New Tenants (Grace Period)" meta={STATUS_META[STATUS.UPCOMING]} records={grouped[STATUS.UPCOMING]} ym={ym} onMarkPaid={setCollecting} onMarkUnpaid={handleUnpaid} onViewTenant={onViewTenant} />
+          <RentSection title="Overdue"   meta={STATUS_META[STATUS.OVERDUE]}   records={overdue}   ym={ym} onMarkPaid={setCollecting} onMarkUnpaid={handleUnpaid} onViewTenant={onViewTenant} upiId={upiId} />
+          <RentSection title="Due Today" meta={STATUS_META[STATUS.DUE_TODAY]} records={dueToday}  ym={ym} onMarkPaid={setCollecting} onMarkUnpaid={handleUnpaid} onViewTenant={onViewTenant} upiId={upiId} />
+          <RentSection title="Due Soon"  meta={STATUS_META[STATUS.DUE_SOON]}  records={dueSoon}   ym={ym} onMarkPaid={setCollecting} onMarkUnpaid={handleUnpaid} onViewTenant={onViewTenant} upiId={upiId} />
+          <RentSection title="Paid"      meta={STATUS_META[STATUS.PAID]}      records={paid}      ym={ym} onMarkPaid={setCollecting} onMarkUnpaid={handleUnpaid} onViewTenant={onViewTenant} upiId={upiId} />
+          <RentSection title="New Tenants (Grace Period)" meta={STATUS_META[STATUS.UPCOMING]} records={grouped[STATUS.UPCOMING]} ym={ym} onMarkPaid={setCollecting} onMarkUnpaid={handleUnpaid} onViewTenant={onViewTenant} upiId={upiId} />
         </>
       )}
 
@@ -841,7 +841,7 @@ function CashflowTab({ selectedPropertyId, tenants }) {
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
-export default function FinancePage({ selectedPropertyId, tenants, onViewTenant }) {
+export default function FinancePage({ selectedPropertyId, tenants, onViewTenant, upiId }) {
   const [tab, setTab] = useState(() => {
     const saved = localStorage.getItem('stayops_finance_tab');
     return SUB_TABS.find(t => t.id === saved) ? saved : 'rent';
@@ -855,7 +855,7 @@ export default function FinancePage({ selectedPropertyId, tenants, onViewTenant 
   return (
     <div className="flex flex-col gap-4">
       <SubNav active={tab} onChange={changeTab} />
-      {tab === 'rent'     && <RentTab     selectedPropertyId={selectedPropertyId} onViewTenant={onViewTenant} />}
+      {tab === 'rent'     && <RentTab     selectedPropertyId={selectedPropertyId} onViewTenant={onViewTenant} upiId={upiId} />}
       {tab === 'expenses' && <ExpensesTab selectedPropertyId={selectedPropertyId} />}
       {tab === 'pl'       && <PLTab       selectedPropertyId={selectedPropertyId} tenants={tenants} />}
       {tab === 'cashflow' && <CashflowTab selectedPropertyId={selectedPropertyId} tenants={tenants} />}

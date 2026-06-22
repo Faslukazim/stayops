@@ -156,7 +156,7 @@ function MoveBedForm({ tenant, fromRoomId, rooms, onConfirm, onCancel, saving })
 
 // ─── Bed row ──────────────────────────────────────────────────────────────────
 
-function BedRow({ bed, roomNumber, roomId, rooms, onMarkPaid, onMarkUnpaid, onVacate, onMove, onViewTenant }) {
+function BedRow({ bed, roomNumber, roomId, rooms, upiId, onMarkPaid, onMarkUnpaid, onVacate, onMove, onViewTenant }) {
   const occ = bed.occupancy;
   const tenant = bed.tenant;
   const isPaid = occ?.payment_status === 'Paid';
@@ -226,6 +226,7 @@ function BedRow({ bed, roomNumber, roomId, rooms, onMarkPaid, onMarkUnpaid, onVa
           bedNumber={bed.bed_number}
           rent={occ.monthly_rent}
           label="Remind"
+          upiId={upiId}
         />
         <button
           type="button"
@@ -277,7 +278,7 @@ function BedRow({ bed, roomNumber, roomId, rooms, onMarkPaid, onMarkUnpaid, onVa
 
 // ─── Room detail panel ────────────────────────────────────────────────────────
 
-function RoomDetail({ room, rooms, selectedPropertyId, onClose, onAssign, onRoomUpdate, onViewTenant }) {
+function RoomDetail({ room, rooms, selectedPropertyId, upiId, onClose, onAssign, onRoomUpdate, onViewTenant }) {
   const occupied = room.beds.filter(b => b.tenant).length;
   const capacity = room.beds.length;
   const unpaid = room.beds.filter(b => b.occupancy?.payment_status === 'Unpaid').length;
@@ -362,6 +363,7 @@ function RoomDetail({ room, rooms, selectedPropertyId, onClose, onAssign, onRoom
             roomNumber={room.room_number}
             roomId={room.id}
             rooms={rooms}
+            upiId={upiId}
             onMarkPaid={handleMarkPaid}
             onMarkUnpaid={handleMarkUnpaid}
             onVacate={handleVacate}
@@ -416,7 +418,7 @@ function RoomDetail({ room, rooms, selectedPropertyId, onClose, onAssign, onRoom
 
 // ─── Rooms page ───────────────────────────────────────────────────────────────
 
-export default function RoomsPage({ selectedPropertyId, onAssignBed, onViewTenant }) {
+export default function RoomsPage({ selectedPropertyId, upiId, onAssignBed, onViewTenant }) {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -489,6 +491,7 @@ export default function RoomsPage({ selectedPropertyId, onAssignBed, onViewTenan
             room={selectedRoom}
             rooms={rooms}
             selectedPropertyId={selectedPropertyId}
+            upiId={upiId}
             onClose={() => setSelectedRoom(null)}
             onAssign={handleAssign}
             onRoomUpdate={load}
@@ -523,6 +526,7 @@ export default function RoomsPage({ selectedPropertyId, onAssignBed, onViewTenan
               room={selectedRoom}
               rooms={rooms}
               selectedPropertyId={selectedPropertyId}
+              upiId={upiId}
               onClose={() => setSelectedRoom(null)}
               onAssign={handleAssign}
               onRoomUpdate={load}

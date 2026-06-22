@@ -3,11 +3,19 @@ import { supabase } from '../lib/supabase';
 export async function fetchProperties() {
   const { data, error } = await supabase
     .from('properties')
-    .select('id, name, total_beds, address, status, is_demo')
+    .select('id, name, total_beds, address, status, is_demo, upi_id')
     .eq('status', 'active')
     .order('name');
   if (error) throw error;
   return data;
+}
+
+export async function updatePropertyUpiId(propertyId, upiId) {
+  const { error } = await supabase
+    .from('properties')
+    .update({ upi_id: upiId || null })
+    .eq('id', propertyId);
+  if (error) throw error;
 }
 
 export async function fetchRoomsWithBeds(propertyId) {
