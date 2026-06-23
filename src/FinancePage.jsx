@@ -510,20 +510,30 @@ function ExpensesTab({ selectedPropertyId }) {
 
 // ─── Income Tab ──────────────────────────────────────────────────────────────
 
-const EMPTY_EXTRA = { category: 'Food', amount: '', date: new Date().toISOString().slice(0, 10), note: '', tenant_id: '' };
-const EMPTY_GUEST = { name: '', phone: '', daily_rate: '', days: '1', date: new Date().toISOString().slice(0, 10), note: '' };
+const INCOME_TYPE_CHIPS = [
+  ...INCOME_CATEGORIES.map(c => ({ id: c, label: c, type: 'extra_charge' })),
+  { id: 'Day Guest', label: 'Day Guest', type: 'day_guest' },
+];
+
+const EMPTY_INCOME_FORM = {
+  typeChip: 'Food',
+  amount: '', date: new Date().toISOString().slice(0, 10), note: '', tenant_id: '',
+  name: '', phone: '', daily_rate: '', days: '1',
+};
 
 function IncomeTab({ selectedPropertyId, organizationId, tenants }) {
   const [ym, setYm] = useState(ymNow);
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState('extra'); // 'extra' | 'guest'
-  const [extraForm, setExtraForm] = useState(EMPTY_EXTRA);
-  const [guestForm, setGuestForm] = useState(EMPTY_GUEST);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState(EMPTY_INCOME_FORM);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [deletingId, setDeletingId] = useState(null);
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const isDayGuest = form.typeChip === 'Day Guest';
 
   useEffect(() => {
     if (!selectedPropertyId) return;
@@ -533,226 +543,211 @@ function IncomeTab({ selectedPropertyId, organizationId, tenants }) {
   }, [selectedPropertyId, ym]);
 
   const total = records.reduce((s, r) => s + Number(r.amount), 0);
+  const byType = [
+    ...INCOME_CATEGORIES.map(cat => ({
+      label: cat,
+      total: records.filter(r => r.type === 'extra_charge' && r.category === cat).reduce((s, r) => s + Number(r.amount), 0),
+    })),
+    { label: 'Day Guest', total: records.filter(r => r.type === 'day_guest').reduce((s, r) => s + Number(r.amount), 0) },
+  ].filter(c => c.total > 0).sort((a, b) => b.total - a.total);
 
-  function handlePhotoChange(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setPhotoFile(file);
-    setPhotoPreview(URL.createObjectURL(file));
-  }
-
-  async function handleAddExtra(e) {
+  async function handleAdd(e) {
     e.preventDefault();
-    if (!extraForm.amount) return;
-    setSaving(true); setError('');
+    setSaving(true);
     try {
-      const rec = await addIncomeRecord(selectedPropertyId, organizationId, {
-        type: 'extra_charge',
-        category: extraForm.category,
-        amount: Number(extraForm.amount),
-        date: extraForm.date,
-        note: extraForm.note || null,
-        tenant_id: extraForm.tenant_id || null,
-      });
-      setRecords(cur => [rec, ...cur]);
-      setExtraForm(EMPTY_EXTRA);
-    } catch (e) { setError(e.message); }
-    finally { setSaving(false); }
-  }
-
-  async function handleAddGuest(e) {
-    e.preventDefault();
-    if (!guestForm.name || !guestForm.daily_rate) return;
-    setSaving(true); setError('');
-    try {
-      const days = Number(guestForm.days) || 1;
-      const dailyRate = Number(guestForm.daily_rate);
-      const amount = dailyRate * days;
-      let photoPath = null;
-      const tempId = crypto.randomUUID();
-      if (photoFile && organizationId) {
-        const { path } = await uploadIdPhoto(organizationId, tempId, photoFile);
-        photoPath = path;
+      let rec;
+      if (isDayGuest) {
+        const days = Number(form.days) || 1;
+        const dailyRate = Number(form.daily_rate);
+        const amount = dailyRate * days;
+        let photoPath = null;
+        if (photoFile && organizationId) {
+          const { path } = await uploadIdPhoto(organizationId, crypto.randomUUID(), photoFile);
+          photoPath = path;
+        }
+        rec = await addIncomeRecord(selectedPropertyId, organizationId, {
+          type: 'day_guest', amount, daily_rate: dailyRate, days,
+          name: form.name, phone: form.phone || null,
+          date: form.date, note: form.note || null, id_photo_url: photoPath,
+        });
+      } else {
+        rec = await addIncomeRecord(selectedPropertyId, organizationId, {
+          type: 'extra_charge', category: form.typeChip,
+          amount: Number(form.amount), date: form.date,
+          note: form.note || null, tenant_id: form.tenant_id || null,
+        });
       }
-      const rec = await addIncomeRecord(selectedPropertyId, organizationId, {
-        type: 'day_guest',
-        amount,
-        daily_rate: dailyRate,
-        days,
-        name: guestForm.name,
-        phone: guestForm.phone || null,
-        date: guestForm.date,
-        note: guestForm.note || null,
-        id_photo_url: photoPath,
-      });
-      setRecords(cur => [rec, ...cur]);
-      setGuestForm(EMPTY_GUEST);
-      setPhotoFile(null);
-      setPhotoPreview(null);
-    } catch (e) { setError(e.message); }
+      setRecords(prev => [rec, ...prev].sort((a, b) => b.date.localeCompare(a.date)));
+      setForm(EMPTY_INCOME_FORM); setPhotoFile(null); setPhotoPreview(null); setShowForm(false);
+    } catch (err) { console.error(err); }
     finally { setSaving(false); }
   }
 
   async function handleDelete(id) {
+    setDeletingId(id);
     try {
       await deleteIncomeRecord(id);
-      setRecords(cur => cur.filter(r => r.id !== id));
-    } catch (e) { setError(e.message); }
+      setRecords(prev => prev.filter(r => r.id !== id));
+    } catch (err) { console.error(err); }
+    finally { setDeletingId(null); }
   }
 
-  const inputCls = 'w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink';
-  const selectCls = `${inputCls} appearance-none`;
+  const inputCls = 'w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink bg-white';
 
   return (
     <div className="flex flex-col gap-4">
       <MonthNav ym={ym} onChange={setYm} />
 
-      {/* Form */}
-      <Card className="overflow-hidden">
-        {/* Mode toggle */}
-        <div className="flex border-b border-border">
-          {[{ id: 'extra', label: 'Extra Charge' }, { id: 'guest', label: 'Day Guest' }].map(t => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setMode(t.id)}
-              className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${mode === t.id ? 'bg-ink text-white' : 'text-slate2 hover:bg-mist'}`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        {mode === 'extra' ? (
-          <form onSubmit={handleAddExtra} className="p-4 flex flex-col gap-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block">
-                <Label>Category</Label>
-                <select value={extraForm.category} onChange={e => setExtraForm(f => ({ ...f, category: e.target.value }))} className={`mt-1.5 ${selectCls}`}>
-                  {INCOME_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </label>
-              <label className="block">
-                <Label>Amount (₹)</Label>
-                <input required type="number" min="1" value={extraForm.amount} onChange={e => setExtraForm(f => ({ ...f, amount: e.target.value }))} className={`mt-1.5 ${inputCls}`} placeholder="500" />
-              </label>
+      {/* Stats */}
+      {records.length > 0 && (
+        <Card className="overflow-hidden">
+          <div className="px-4 py-3 flex items-center justify-between border-b border-border">
+            <Label>Total Income</Label>
+            <span className="text-xl font-bold tabular-nums text-leaf">{fmt(total)}</span>
+          </div>
+          {byType.length > 0 && (
+            <div className="divide-y divide-border">
+              {byType.map(cat => (
+                <div key={cat.label} className="flex items-center justify-between px-4 py-2.5">
+                  <span className="text-sm text-ink">{cat.label}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="h-1.5 w-20 rounded-full bg-border overflow-hidden">
+                      <div className="h-full rounded-full bg-leaf/60" style={{ width: `${Math.round((cat.total / total) * 100)}%` }} />
+                    </div>
+                    <span className="text-sm font-semibold tabular-nums text-leaf w-20 text-right">{fmt(cat.total)}</span>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
+          )}
+        </Card>
+      )}
+
+      {/* Add button / form */}
+      {!showForm ? (
+        <Btn variant="secondary" className="w-full justify-center gap-2 py-3" onClick={() => setShowForm(true)}>
+          <Plus className="h-4 w-4" /> Add Income
+        </Btn>
+      ) : (
+        <Card className="overflow-hidden">
+          <SectionHeader title="Add Income" action={<IconBtn variant="ghost" onClick={() => { setShowForm(false); setForm(EMPTY_INCOME_FORM); setPhotoFile(null); setPhotoPreview(null); }}><ChevronLeft className="h-4 w-4" /></IconBtn>} />
+          <form onSubmit={handleAdd} className="p-4 flex flex-col gap-3">
+            {/* Type chips */}
+            <div>
+              <Label>Type</Label>
+              <div className="mt-1.5 flex flex-wrap gap-2">
+                {INCOME_TYPE_CHIPS.map(chip => (
+                  <button key={chip.id} type="button" onClick={() => set('typeChip', chip.id)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-semibold border transition-colors ${form.typeChip === chip.id ? 'bg-ink text-white border-ink' : 'bg-white text-slate2 border-border hover:border-slate2/40'}`}>
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {isDayGuest ? (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block"><Label>Guest Name</Label>
+                    <input required type="text" value={form.name} onChange={e => set('name', e.target.value)} className={`mt-1.5 ${inputCls}`} placeholder="Full name" />
+                  </label>
+                  <label className="block"><Label>Phone <span className="text-slate2 font-normal">(optional)</span></Label>
+                    <input type="tel" value={form.phone} onChange={e => set('phone', e.target.value)} className={`mt-1.5 ${inputCls}`} placeholder="9876543210" inputMode="tel" />
+                  </label>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <label className="block"><Label>Daily Rate (₹)</Label>
+                    <input required type="number" min="1" value={form.daily_rate} onChange={e => set('daily_rate', e.target.value)} className={`mt-1.5 ${inputCls}`} placeholder="300" />
+                  </label>
+                  <label className="block"><Label>Days</Label>
+                    <input required type="number" min="1" value={form.days} onChange={e => set('days', e.target.value)} className={`mt-1.5 ${inputCls}`} />
+                  </label>
+                  <label className="block"><Label>Date</Label>
+                    <input required type="date" value={form.date} onChange={e => set('date', e.target.value)} className={`mt-1.5 ${inputCls}`} />
+                  </label>
+                </div>
+                {form.daily_rate && form.days && (
+                  <div className="rounded-lg bg-mist px-3 py-2 flex items-center justify-between">
+                    <Label>Total</Label>
+                    <span className="text-sm font-bold text-ink tabular-nums">{fmt(Number(form.daily_rate) * Number(form.days))}</span>
+                  </div>
+                )}
+                <div>
+                  <Label>ID Photo</Label>
+                  <div className="mt-1.5 flex items-center gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-border px-3 py-2.5 text-sm font-semibold text-slate2 hover:bg-mist transition-colors">
+                      <Camera className="h-4 w-4" />{photoPreview ? 'Retake' : 'Capture ID'}
+                      <input type="file" accept="image/*" capture="environment" onChange={e => { const f = e.target.files?.[0]; if (f) { setPhotoFile(f); setPhotoPreview(URL.createObjectURL(f)); } }} className="sr-only" />
+                    </label>
+                    {photoPreview && <img src={photoPreview} alt="ID" className="h-12 w-16 rounded-lg object-cover border border-border" />}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block"><Label>Amount</Label>
+                  <MoneyInput value={form.amount} onChange={v => set('amount', v)} className="mt-1.5" />
+                </label>
+                <label className="block"><Label>Date</Label>
+                  <input required type="date" value={form.date} onChange={e => set('date', e.target.value)} className={`mt-1.5 ${inputCls}`} />
+                </label>
+              </div>
+            )}
+
+            <label className="block">
+              <Label>Note <span className="text-slate2 font-normal">(optional)</span></Label>
+              <input type="text" value={form.note} onChange={e => set('note', e.target.value)} className={`mt-1.5 ${inputCls}`} placeholder={isDayGuest ? 'e.g. room 2 overnight' : 'e.g. 3 days food'} />
+            </label>
+
+            {!isDayGuest && (
               <label className="block">
-                <Label>Date</Label>
-                <input required type="date" value={extraForm.date} onChange={e => setExtraForm(f => ({ ...f, date: e.target.value }))} className={`mt-1.5 ${inputCls}`} />
-              </label>
-              <label className="block">
-                <Label>Tenant <span className="font-normal text-slate2">(optional)</span></Label>
-                <select value={extraForm.tenant_id} onChange={e => setExtraForm(f => ({ ...f, tenant_id: e.target.value }))} className={`mt-1.5 ${selectCls}`}>
+                <Label>Tenant <span className="text-slate2 font-normal">(optional)</span></Label>
+                <select value={form.tenant_id} onChange={e => set('tenant_id', e.target.value)} className={`mt-1.5 ${inputCls} appearance-none`}>
                   <option value="">— None —</option>
                   {tenants.map(t => <option key={t.id} value={t.id}>{t.name} · {t.roomNumber}</option>)}
                 </select>
               </label>
-            </div>
-            <label className="block">
-              <Label>Note <span className="font-normal text-slate2">(optional)</span></Label>
-              <input type="text" value={extraForm.note} onChange={e => setExtraForm(f => ({ ...f, note: e.target.value }))} className={`mt-1.5 ${inputCls}`} placeholder="e.g. 3 days food" />
-            </label>
-            {error && <p className="text-xs text-coral">{error}</p>}
-            <Btn variant="primary" disabled={saving} className="w-full justify-center py-2.5" {...{ type: 'submit' }}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              Add Charge
-            </Btn>
-          </form>
-        ) : (
-          <form onSubmit={handleAddGuest} className="p-4 flex flex-col gap-3">
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block">
-                <Label>Guest Name</Label>
-                <input required type="text" value={guestForm.name} onChange={e => setGuestForm(f => ({ ...f, name: e.target.value }))} className={`mt-1.5 ${inputCls}`} placeholder="Full name" />
-              </label>
-              <label className="block">
-                <Label>Phone <span className="font-normal text-slate2">(optional)</span></Label>
-                <input type="tel" value={guestForm.phone} onChange={e => setGuestForm(f => ({ ...f, phone: e.target.value }))} className={`mt-1.5 ${inputCls}`} placeholder="9876543210" inputMode="tel" />
-              </label>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="block">
-                <Label>Daily Rate (₹)</Label>
-                <input required type="number" min="1" value={guestForm.daily_rate} onChange={e => setGuestForm(f => ({ ...f, daily_rate: e.target.value }))} className={`mt-1.5 ${inputCls}`} placeholder="300" />
-              </label>
-              <label className="block">
-                <Label>No. of Days</Label>
-                <input required type="number" min="1" value={guestForm.days} onChange={e => setGuestForm(f => ({ ...f, days: e.target.value }))} className={`mt-1.5 ${inputCls}`} />
-              </label>
-              <label className="block">
-                <Label>Date</Label>
-                <input required type="date" value={guestForm.date} onChange={e => setGuestForm(f => ({ ...f, date: e.target.value }))} className={`mt-1.5 ${inputCls}`} />
-              </label>
-            </div>
-            {/* Total preview */}
-            {guestForm.daily_rate && guestForm.days && (
-              <div className="rounded-lg bg-mist px-3 py-2 flex items-center justify-between">
-                <Label>Total</Label>
-                <span className="text-sm font-bold text-ink tabular-nums">{fmt(Number(guestForm.daily_rate) * Number(guestForm.days))}</span>
-              </div>
             )}
-            {/* ID Photo */}
-            <div>
-              <Label>ID Photo</Label>
-              <div className="mt-1.5 flex items-center gap-3">
-                <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-border px-3 py-2.5 text-sm font-semibold text-slate2 hover:bg-mist transition-colors">
-                  <Camera className="h-4 w-4" />
-                  {photoPreview ? 'Retake' : 'Capture ID'}
-                  <input type="file" accept="image/*" capture="environment" onChange={handlePhotoChange} className="sr-only" />
-                </label>
-                {photoPreview && (
-                  <img src={photoPreview} alt="ID preview" className="h-12 w-16 rounded-lg object-cover border border-border" />
-                )}
-              </div>
+
+            <div className="flex gap-2">
+              <Btn variant="secondary" className="flex-1 justify-center" onClick={() => { setShowForm(false); setForm(EMPTY_INCOME_FORM); setPhotoFile(null); setPhotoPreview(null); }}>Cancel</Btn>
+              <Btn variant="primary" className="flex-1 justify-center" {...{ type: 'submit' }} disabled={saving}>
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                Add
+              </Btn>
             </div>
-            <label className="block">
-              <Label>Note <span className="font-normal text-slate2">(optional)</span></Label>
-              <input type="text" value={guestForm.note} onChange={e => setGuestForm(f => ({ ...f, note: e.target.value }))} className={`mt-1.5 ${inputCls}`} placeholder="e.g. room 2 overnight" />
-            </label>
-            {error && <p className="text-xs text-coral">{error}</p>}
-            <Btn variant="primary" disabled={saving} className="w-full justify-center py-2.5" {...{ type: 'submit' }}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <User className="h-4 w-4" />}
-              Add Day Guest
-            </Btn>
           </form>
-        )}
-      </Card>
+        </Card>
+      )}
 
       {/* Records list */}
-      {loading ? (
-        <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-slate2" /></div>
-      ) : records.length === 0 ? (
-        <Card><EmptyState icon={TrendingUp} title="No income recorded" body="Add extra charges or day guests above." /></Card>
-      ) : (
-        <Card className="overflow-hidden">
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
-            <Label>Recorded Income</Label>
-            <span className="text-sm font-bold text-leaf tabular-nums">{fmt(total)}</span>
-          </div>
+      <Card className="overflow-hidden">
+        <SectionHeader title="Income Records" />
+        {loading ? (
+          <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-slate2" /></div>
+        ) : records.length === 0 ? (
+          <EmptyState icon={TrendingUp} title="No income recorded" body="Add extra charges or day guests above." />
+        ) : (
           <div className="divide-y divide-border">
             {records.map(r => (
               <div key={r.id} className="flex items-center gap-3 px-4 py-3">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-ink truncate">
-                    {r.type === 'day_guest' ? `${r.name} (Day Guest)` : r.category}
-                  </p>
+                  <p className="text-sm font-semibold text-ink">{r.type === 'day_guest' ? `${r.name} · Day Guest` : r.category}</p>
                   <p className="text-xs text-slate2">
                     {r.date}
                     {r.type === 'day_guest' && r.days > 1 && ` · ${r.days} days @ ${fmt(r.daily_rate)}/day`}
                     {r.note && ` · ${r.note}`}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-sm font-bold tabular-nums text-leaf">{fmt(r.amount)}</span>
-                  <IconBtn variant="danger" onClick={() => handleDelete(r.id)}><Trash2 className="h-4 w-4" /></IconBtn>
-                </div>
+                <span className="text-sm font-bold tabular-nums text-leaf shrink-0">{fmt(r.amount)}</span>
+                <IconBtn variant="ghost" onClick={() => handleDelete(r.id)} disabled={deletingId === r.id} className="text-slate2 hover:text-coral">
+                  {deletingId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                </IconBtn>
               </div>
             ))}
           </div>
-        </Card>
-      )}
+        )}
+      </Card>
     </div>
   );
 }
