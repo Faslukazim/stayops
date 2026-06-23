@@ -282,7 +282,7 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
         moveInCollection: initialTenant.moveInCollection ?? '',
       });
     } else if (prefill) {
-      setForm({ ...emptyForm, propertyId: prefill.propertyId ?? '', roomId: prefill.roomId ?? '', bedId: prefill.bedId ?? '' });
+      setForm({ ...emptyForm, propertyId: prefill.propertyId ?? '', roomId: prefill.roomId ?? '', bedId: prefill.bedId ?? '', name: prefill.prefillName ?? '', phone: prefill.prefillPhone ?? '' });
     } else {
       setForm({ ...emptyForm, propertyId: defaultPropertyId ?? '' });
     }
@@ -1676,10 +1676,17 @@ export default function App({ session, organizationName, onSignOut } = {}) {
   }
 
   async function handleConvertBooking(booking) {
-    // Mark booking as converted, pre-fill tenant form with visitor details
     await convertBooking(booking.id);
-    setRoomPrefill({ propertyId: selectedPropertyId, roomId: booking.room_id, bedId: booking.bed_id });
-    setEditingTenant({ name: booking.name, phone: booking.phone, _fromBooking: true });
+    // Pre-fill the add-tenant form. Use roomPrefill (no initialTenant) so
+    // TenantForm enters "new tenant" mode with name/phone as separate state.
+    setRoomPrefill({
+      propertyId: selectedPropertyId,
+      roomId: booking.room_id,
+      bedId: booking.bed_id,
+      prefillName: booking.name,
+      prefillPhone: booking.phone,
+    });
+    setEditingTenant(null);
     fetchBookings(selectedPropertyId).then(setPendingBookings).catch(() => {});
     setRoomsVersion(v => v + 1);
     navigateTo('tenants');
