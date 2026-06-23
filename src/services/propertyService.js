@@ -20,13 +20,17 @@ export async function createRoom(propertyId, { roomNumber, beds }) {
 
   const bedRows = Array.from({ length: beds }, (_, i) => ({
     room_id: room.id,
-    property_id: propertyId,
     bed_number: String(i + 1),
     status: 'available',
   }));
   const { error: bedErr } = await supabase.from('beds').insert(bedRows);
   if (bedErr) throw bedErr;
   return room;
+}
+
+export async function deleteRoom(roomId) {
+  const { error } = await supabase.from('rooms').update({ status: 'archived' }).eq('id', roomId);
+  if (error) throw error;
 }
 
 export async function updatePropertyUpiId(propertyId, upiId) {

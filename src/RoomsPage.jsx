@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
-import { ArrowLeft, ArrowRightLeft, BedDouble, ChevronDown, Loader2, Plus, X } from 'lucide-react';
-import { fetchRoomsWithOccupants, createRoom } from './services/propertyService';
+import { ArrowLeft, ArrowRightLeft, BedDouble, ChevronDown, Loader2, Plus, Trash2, X } from 'lucide-react';
+import { fetchRoomsWithOccupants, createRoom, deleteRoom } from './services/propertyService';
 import { deleteTenant, moveTenant, updateTenant } from './services/tenantService';
 import { markTenantRecordPaid } from './services/paymentService';
 import { logActivity } from './services/activityService';
@@ -278,7 +278,7 @@ function BedRow({ bed, roomNumber, roomId, rooms, upiId, onMarkPaid, onMarkUnpai
 
 // ─── Room detail panel ────────────────────────────────────────────────────────
 
-function RoomDetail({ room, rooms, selectedPropertyId, upiId, onClose, onAssign, onRoomUpdate, onViewTenant }) {
+function RoomDetail({ room, rooms, selectedPropertyId, upiId, onClose, onAssign, onRoomUpdate, onViewTenant, onDeleteRoom }) {
   const occupied = room.beds.filter(b => b.tenant).length;
   const capacity = room.beds.length;
   const unpaid = room.beds.filter(b => b.occupancy?.payment_status === 'Unpaid').length;
@@ -287,6 +287,8 @@ function RoomDetail({ room, rooms, selectedPropertyId, upiId, onClose, onAssign,
     .filter(b => b.occupancy?.payment_status === 'Unpaid')
     .reduce((s, b) => s + Number(b.occupancy?.monthly_rent || 0), 0);
   const [collectingBed, setCollectingBed] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const hasAvailable = room.beds.some(b => !b.tenant);
 
@@ -343,14 +345,29 @@ function RoomDetail({ room, rooms, selectedPropertyId, upiId, onClose, onAssign,
         </div>
         <div className="flex items-center gap-2">
           {hasAvailable && (
-            <Btn
-              variant="primary"
-              size="sm"
-              onClick={() => onAssign(room)}
-            >
+            <Btn variant="primary" size="sm" onClick={() => onAssign(room)}>
               <Plus className="h-4 w-4" />
               Assign
             </Btn>
+          )}
+          {occupied === 0 && (
+            confirmDelete ? (
+              <ConfirmInline
+                message={`Delete Room ${room.room_number}?`}
+                confirmLabel={deleting ? 'Deleting…' : 'Delete'}
+                onCancel={() => setConfirmDelete(false)}
+                onConfirm={async () => {
+                  setDeleting(true);
+                  await onDeleteRoom(room.id);
+                  setDeleting(false);
+                  setConfirmDelete(false);
+                }}
+              />
+            ) : (
+              <IconBtn variant="ghost" onClick={() => setConfirmDelete(true)} title="Delete room">
+                <Trash2 className="h-4 w-4 text-coral" />
+              </IconBtn>
+            )
           )}
         </div>
       </div>
@@ -521,6 +538,12 @@ export default function RoomsPage({ selectedPropertyId, upiId, onAssignBed, onVi
     await load();
   }
 
+  async function handleDeleteRoom(roomId) {
+    await deleteRoom(roomId);
+    setSelectedRoom(null);
+    await load();
+  }
+
   if (loading) return <PageLoader />;
 
   if (error) {
@@ -562,6 +585,7 @@ export default function RoomsPage({ selectedPropertyId, upiId, onAssignBed, onVi
             onClose={() => setSelectedRoom(null)}
             onAssign={handleAssign}
             onRoomUpdate={load}
+            onDeleteRoom={handleDeleteRoom}
             onViewTenant={onViewTenant}
           />
         </Card>
