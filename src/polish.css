@@ -1,0 +1,44 @@
+/* ── Toast ───────────────────────────────────────────────────────────────── */
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1);    }
+}
+
+@keyframes toast-bar {
+  from { width: 100%; }
+  to   { width: 0%;   }
+}
+
+.toast-item {
+  animation: toast-in 0.18s ease-out both;
+}
+
+.toast-bar {
+  animation: toast-bar 3.5s linear forwards;
+}
+
+/* ── Stagger fade-up for lists ──────────────────────────────────────────── */
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+.stagger-item {
+  opacity: 0;
+  animation: fade-up 0.2s ease-out forwards;
+  animation-delay: calc(var(--i, 0) * 50ms);
+}
+
+/* ── Green flash when rent is marked paid ───────────────────────────────── */
+
+@keyframes flash-paid {
+  0%   { background-color: transparent; }
+  25%  { background-color: rgb(22 163 74 / 0.10); }
+  100% { background-color: transparent; }
+}
+
+.flash-paid {
+  animation: flash-paid 1s ease-out;
+}

@@ -77,6 +77,18 @@ export function Btn({ children, className = '', variant = 'ghost', size = 'md', 
   );
 }
 
+// ─── LoadingBtn ──────────────────────────────────────────────────────────────
+// Btn that shows spinner + disables itself while loading.
+
+export function LoadingBtn({ children, loading = false, loadingText, className = '', variant = 'primary', size = 'md', ...props }) {
+  return (
+    <Btn variant={variant} size={size} className={className} disabled={loading} {...props}>
+      {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+      {loading ? (loadingText ?? children) : children}
+    </Btn>
+  );
+}
+
 // ─── IconBtn ─────────────────────────────────────────────────────────────────
 // Icon-only button with correct 40px tap target.
 

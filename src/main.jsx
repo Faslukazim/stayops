@@ -1,7 +1,9 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import Root from './Root.jsx';
+import { ToastProvider } from './lib/toast.jsx';
 import './styles.css';
+import './polish.css';
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -11,6 +13,8 @@ if ('serviceWorker' in navigator) {
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <Root />
+    <ToastProvider>
+      <Root />
+    </ToastProvider>
   </React.StrictMode>,
 );

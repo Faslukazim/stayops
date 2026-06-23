@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useToast } from './lib/toast.jsx';
 import {
   BarChart2, BedDouble, Camera, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight,
   Home, Loader2, LogOut, MessageCircle, Pencil, Plus, Save, Sparkles, Trash2, UserMinus, UserPlus, Users, X,
@@ -696,7 +697,7 @@ function VacatedTenantCard({ tenant: t, onReturnDeposit, onForfeitDeposit, onDel
 
 // ─── tenant card ─────────────────────────────────────────────────────────────
 
-function TenantCard({ tenant, upiId, onEdit, onDelete, onVacate, onMarkPaid, onMarkUnpaid, onReturnDeposit, onForfeitDeposit }) {
+function TenantCard({ tenant, upiId, flashPaid, onEdit, onDelete, onVacate, onMarkPaid, onMarkUnpaid, onReturnDeposit, onForfeitDeposit }) {
   const isPaid = tenant.paymentStatus === 'Paid';
   const hasDeposit = tenant.depositAmount > 0;
   const depositHeld = hasDeposit && tenant.depositStatus === 'held';
@@ -707,7 +708,7 @@ function TenantCard({ tenant, upiId, onEdit, onDelete, onVacate, onMarkPaid, onM
   const [vacateSaving, setVacateSaving] = useState(false);
 
   return (
-    <Card className="overflow-hidden">
+    <Card className={`overflow-hidden transition-colors${flashPaid ? ' flash-paid' : ''}`}>
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -1320,7 +1321,7 @@ function UpiSettings({ propertyId, upiId, onSave }) {
   );
 }
 
-function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, saving, roomPrefill, upiId, onAddTenant, onUpdateTenant, onCancelEdit, onEdit, onDelete, onVacate, onMarkPaid, onMarkUnpaid, onReturnDeposit, onForfeitDeposit, onAddDayGuest, selectedPropertyId }) {
+function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, saving, roomPrefill, upiId, flashPaidId, onAddTenant, onUpdateTenant, onCancelEdit, onEdit, onDelete, onVacate, onMarkPaid, onMarkUnpaid, onReturnDeposit, onForfeitDeposit, onAddDayGuest, selectedPropertyId }) {
   const [query, setQuery] = useState('');
   const [showPast, setShowPast] = useState(false);
   const [vacated, setVacated] = useState([]);
@@ -1413,19 +1414,21 @@ function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, sa
           ) : (
             <>
               {query && <p className="text-xs text-slate2 px-1">{filtered.length} of {tenants.length} tenants</p>}
-              {filtered.map(t => (
-                <TenantCard
-                  key={t.id}
-                  tenant={t}
-                  upiId={upiId}
-                  onEdit={onEdit}
-                  onDelete={onDelete}
-                  onVacate={onVacate}
-                  onMarkPaid={onMarkPaid}
-                  onMarkUnpaid={onMarkUnpaid}
-                  onReturnDeposit={onReturnDeposit}
-                  onForfeitDeposit={onForfeitDeposit}
-                />
+              {filtered.map((t, i) => (
+                <div key={t.id} className="stagger-item" style={{ '--i': i }}>
+                  <TenantCard
+                    tenant={t}
+                    upiId={upiId}
+                    flashPaid={flashPaidId === t.id}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    onVacate={onVacate}
+                    onMarkPaid={onMarkPaid}
+                    onMarkUnpaid={onMarkUnpaid}
+                    onReturnDeposit={onReturnDeposit}
+                    onForfeitDeposit={onForfeitDeposit}
+                  />
+                </div>
               ))}
             </>
           )
@@ -1504,18 +1507,15 @@ export default function App({ session, organizationName, onSignOut } = {}) {
   const [viewingTenantId, setViewingTenantId] = useState(null);
   const [vacatingTenant, setVacatingTenant] = useState(null);
   const [vacatingSaving, setVacatingSaving] = useState(false);
-  const [toast, setToast] = useState('');
+  const [flashPaidId, setFlashPaidId] = useState(null);
+  const flashPaidTimer = useRef(null);
+  const toast = useToast();
   const [seeding, setSeeding] = useState(false);
   const [upiId, setUpiId] = useState('');
   const [pendingDeposits, setPendingDeposits] = useState([]);
   const [movedOutThisMonth, setMovedOutThisMonth] = useState([]);
   const [pendingBookings, setPendingBookings] = useState([]);
 
-  useEffect(() => {
-    if (!toast) return;
-    const id = setTimeout(() => setToast(''), 3000);
-    return () => clearTimeout(id);
-  }, [toast]);
   const viewingTenant = viewingTenantId ? tenants.find(t => t.id === viewingTenantId) ?? null : null;
 
   const loadProperties = useCallback(async () => {
@@ -1629,7 +1629,8 @@ export default function App({ session, organizationName, onSignOut } = {}) {
       setTenants(cur => [c, ...cur]);
       setRoomsVersion(v => v + 1);
       logActivity(selectedPropertyId, properties.find(p=>p.id===selectedPropertyId)?.organization_id, 'tenant_assigned', `${c.name} assigned to Room ${c.roomNumber} Bed ${c.bedNumber}`);
-    } catch (e) { setError(e.message); }
+      toast.success(`${c.name} added`);
+    } catch (e) { toast.error(e.message); }
     finally { setSaving(false); }
   }
 
@@ -1653,7 +1654,7 @@ export default function App({ session, organizationName, onSignOut } = {}) {
       date,
       id_photo_url: photoPath,
     });
-    setToast(`Day guest ${name} recorded`);
+    toast.success(`Day guest ${name} recorded`);
   }
 
   async function handleUpdate(tenant) {
@@ -1670,8 +1671,8 @@ export default function App({ session, organizationName, onSignOut } = {}) {
       }
       setTenants(cur => cur.map(t => t.id === editingTenant.id ? u : t));
       setEditingTenant(null);
-      setToast(`${u.name} updated`);
-    } catch (e) { setError(e.message); }
+      toast.success(`${u.name} updated`);
+    } catch (e) { toast.error(e.message); }
     finally { setSaving(false); }
   }
 
@@ -1704,8 +1705,8 @@ export default function App({ session, organizationName, onSignOut } = {}) {
       fetchMovedOutThisMonth(selectedPropertyId).then(setMovedOutThisMonth).catch(() => {});
       const orgId = properties.find(p=>p.id===selectedPropertyId)?.organization_id;
       logActivity(selectedPropertyId, orgId, 'tenant_vacated', `${tenant.name} vacated Room ${tenant.roomNumber} Bed ${tenant.bedNumber} on ${endDate}`);
-      setToast(`${tenant.name} vacated`);
-    } catch (e) { setError(e.message); }
+      toast.success(`${tenant.name} vacated`);
+    } catch (e) { toast.error(e.message); }
   }
 
   async function handleDelete(tenant) {
@@ -1715,7 +1716,8 @@ export default function App({ session, organizationName, onSignOut } = {}) {
       setTenants(cur => cur.filter(t => t.id !== tenant.id));
       if (editingTenant?.id === tenant.id) setEditingTenant(null);
       setRoomsVersion(v => v + 1);
-    } catch (e) { setError(e.message); }
+      toast.success(`${tenant.name} deleted`);
+    } catch (e) { toast.error(e.message); }
   }
 
   async function handleTenantMarkPaid(amountCollected, deductionReason) {
@@ -1733,30 +1735,38 @@ export default function App({ session, organizationName, onSignOut } = {}) {
         paymentDate: status === 'Paid' ? new Date().toISOString().slice(0, 10) : '',
       });
       setTenants(cur => cur.map(t => t.id === tenant.id ? u : t));
+      if (status === 'Paid') {
+        clearTimeout(flashPaidTimer.current);
+        setFlashPaidId(tenant.id);
+        flashPaidTimer.current = setTimeout(() => setFlashPaidId(null), 1200);
+        toast.success(`${tenant.name} marked paid`);
+      }
       const orgId = properties.find(p=>p.id===selectedPropertyId)?.organization_id;
       logActivity(selectedPropertyId, orgId, status === 'Paid' ? 'payment_paid' : 'payment_unpaid',
         `${tenant.name} marked ${status.toLowerCase()} — Room ${tenant.roomNumber}`);
-    } catch (e) { setError(e.message); }
+    } catch (e) { toast.error(e.message); }
   }
 
   async function handleReturnDeposit(tenant) {
     try {
-      const u = await returnDeposit(tenant.id);
-      setTenants(cur => cur.map(t => t.id === tenant.id ? u : t));
+      await returnDeposit(tenant.id);
+      setTenants(cur => cur.map(t => t.id === tenant.id ? { ...t, depositStatus: 'returned' } : t));
       setPendingDeposits(cur => cur.filter(t => t.id !== tenant.id));
       const orgId = properties.find(p=>p.id===selectedPropertyId)?.organization_id;
       logActivity(selectedPropertyId, orgId, 'deposit_returned', `${tenant.name} deposit returned`);
-    } catch (e) { setError(e.message); }
+      toast.success(`${tenant.name}'s deposit returned`);
+    } catch (e) { toast.error(e.message); }
   }
 
   async function handleForfeitDeposit(tenant) {
     try {
-      const u = await forfeitDeposit(tenant.id);
-      setTenants(cur => cur.map(t => t.id === tenant.id ? u : t));
+      await forfeitDeposit(tenant.id);
+      setTenants(cur => cur.map(t => t.id === tenant.id ? { ...t, depositStatus: 'forfeited' } : t));
       setPendingDeposits(cur => cur.filter(t => t.id !== tenant.id));
       const orgId = properties.find(p=>p.id===selectedPropertyId)?.organization_id;
       logActivity(selectedPropertyId, orgId, 'deposit_forfeited', `${tenant.name} deposit marked not refundable`);
-    } catch (e) { setError(e.message); }
+      toast.success(`${tenant.name}'s deposit forfeited`);
+    } catch (e) { toast.error(e.message); }
   }
 
   return (
@@ -1848,6 +1858,7 @@ export default function App({ session, organizationName, onSignOut } = {}) {
                   saving={saving}
                   roomPrefill={roomPrefill}
                   upiId={upiId}
+                  flashPaidId={flashPaidId}
                   onAddTenant={t => { handleAdd(t); setRoomPrefill(null); }}
                   onUpdateTenant={handleUpdate}
                   onCancelEdit={() => setEditingTenant(null)}
@@ -1907,13 +1918,6 @@ export default function App({ session, organizationName, onSignOut } = {}) {
             setVacatingTenant(null);
           }}
         />
-      )}
-
-      {toast && (
-        <div className="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-ink text-white text-sm font-semibold px-4 py-2.5 rounded-full shadow-lg whitespace-nowrap pointer-events-none">
-          <CheckCircle2 className="h-4 w-4 text-leaf shrink-0" />
-          {toast}
-        </div>
       )}
 
       <BottomNav active={page} onChange={navigateTo} />

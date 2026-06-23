@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { useToast } from './lib/toast.jsx';
 import { ArrowLeft, ArrowRightLeft, BedDouble, Bookmark, ChevronDown, Loader2, Plus, Trash2, X } from 'lucide-react';
 import { fetchRoomsWithOccupants, createRoom, deleteRoom, deleteBed } from './services/propertyService';
 import { deleteTenant, moveTenant, updateTenant } from './services/tenantService';
@@ -410,6 +411,7 @@ function BedRow({ bed, roomNumber, roomId, rooms, upiId, onMarkPaid, onMarkUnpai
 // ─── Room detail panel ────────────────────────────────────────────────────────
 
 function RoomDetail({ room, rooms, selectedPropertyId, organizationId, upiId, onClose, onAssign, onRoomUpdate, onViewTenant, onDeleteRoom, onConvertBooking }) {
+  const toast = useToast();
   const occupied = room.beds.filter(b => b.tenant).length;
   const capacity = room.beds.length;
   const unpaid = room.beds.filter(b => b.occupancy?.payment_status === 'Unpaid').length;
@@ -450,17 +452,23 @@ function RoomDetail({ room, rooms, selectedPropertyId, organizationId, upiId, on
   }
 
   async function handleBook(bed, { name, phone, advanceAmount, expectedJoinDate }) {
-    await createBooking(selectedPropertyId, organizationId, {
-      roomId: room.id,
-      bedId: bed.id,
-      name, phone, advanceAmount, expectedJoinDate,
-    });
-    onRoomUpdate();
+    try {
+      await createBooking(selectedPropertyId, organizationId, {
+        roomId: room.id,
+        bedId: bed.id,
+        name, phone, advanceAmount, expectedJoinDate,
+      });
+      toast.success(`Bed ${bed.bed_number} booked for ${name}`);
+      onRoomUpdate();
+    } catch (e) { toast.error(e.message); }
   }
 
   async function handleCancelBooking(bookingId, bedId) {
-    await cancelBooking(bookingId, bedId);
-    onRoomUpdate();
+    try {
+      await cancelBooking(bookingId, bedId);
+      toast.info('Booking cancelled');
+      onRoomUpdate();
+    } catch (e) { toast.error(e.message); }
   }
 
   async function handleVacate(tenantId) {
