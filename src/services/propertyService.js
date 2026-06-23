@@ -107,8 +107,8 @@ export async function fetchRoomsWithOccupants(propertyId) {
   const FLOOR_ORDER = { G: 0, F: 1, S: 2, T: 3, FO: 4 };
   function roomSortKey(rn) {
     const s = String(rn);
-    const num = parseInt(s, 10);
-    if (!isNaN(num) && String(num) === s) return [98, num, 0];
+    const asNum = parseInt(s, 10);
+    if (!isNaN(asNum) && String(asNum) === s) return [98, asNum, 0];
     const m = s.match(/^([A-Za-z]+)(\d+)$/);
     if (!m) return [99, 0, s];
     const floor = m[1].toUpperCase();
