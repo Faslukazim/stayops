@@ -187,9 +187,9 @@ function BedRow({ bed, roomNumber, roomId, rooms, upiId, onMarkPaid, onMarkUnpai
           <button
             type="button"
             onClick={() => setConfirmDeleteBed(true)}
-            className="ml-1 p-1.5 rounded-lg text-slate2 hover:text-coral hover:bg-coral/10 transition-colors"
+            className="ml-1 p-1.5 rounded-lg text-slate2/60 hover:text-coral hover:bg-coral/10 active:text-coral active:bg-coral/10 transition-colors"
           >
-            <Trash2 size={14} />
+            <Trash2 size={15} />
           </button>
         )}
       </div>
