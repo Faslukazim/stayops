@@ -16,7 +16,10 @@ export async function createRoom(propertyId, { roomNumber, beds }) {
     .insert({ property_id: propertyId, room_number: roomNumber, capacity: beds, status: 'active' })
     .select()
     .single();
-  if (roomErr) throw roomErr;
+  if (roomErr) {
+    if (roomErr.code === '23505') throw new Error(`Room "${roomNumber}" already exists in this property.`);
+    throw roomErr;
+  }
 
   const bedRows = Array.from({ length: beds }, (_, i) => ({
     room_id: room.id,
