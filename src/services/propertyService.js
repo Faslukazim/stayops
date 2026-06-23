@@ -32,7 +32,7 @@ export async function createRoom(propertyId, { roomNumber, beds }) {
 }
 
 export async function deleteRoom(roomId) {
-  const { error } = await supabase.from('rooms').update({ status: 'archived' }).eq('id', roomId);
+  const { error } = await supabase.from('rooms').update({ status: 'inactive' }).eq('id', roomId);
   if (error) throw error;
 }
 

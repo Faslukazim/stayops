@@ -358,9 +358,14 @@ function RoomDetail({ room, rooms, selectedPropertyId, upiId, onClose, onAssign,
                 onCancel={() => setConfirmDelete(false)}
                 onConfirm={async () => {
                   setDeleting(true);
-                  await onDeleteRoom(room.id);
-                  setDeleting(false);
-                  setConfirmDelete(false);
+                  try {
+                    await onDeleteRoom(room.id);
+                    setConfirmDelete(false);
+                  } catch (e) {
+                    console.error(e);
+                  } finally {
+                    setDeleting(false);
+                  }
                 }}
               />
             ) : (
