@@ -36,6 +36,11 @@ export async function deleteRoom(roomId) {
   if (error) throw error;
 }
 
+export async function deleteBed(bedId) {
+  const { error } = await supabase.from('beds').delete().eq('id', bedId);
+  if (error) throw error;
+}
+
 export async function updatePropertyUpiId(propertyId, upiId) {
   const { error } = await supabase
     .from('properties')
@@ -101,8 +106,11 @@ export async function fetchRoomsWithOccupants(propertyId) {
   // Sort rooms by floor (G→F→S→T→…) then by numeric part within each floor
   const FLOOR_ORDER = { G: 0, F: 1, S: 2, T: 3, FO: 4 };
   function roomSortKey(rn) {
-    const m = String(rn).match(/^([A-Za-z]+)(\d+)$/);
-    if (!m) return [99, 0, rn];
+    const s = String(rn);
+    const num = parseInt(s, 10);
+    if (!isNaN(num) && String(num) === s) return [98, num, 0];
+    const m = s.match(/^([A-Za-z]+)(\d+)$/);
+    if (!m) return [99, 0, s];
     const floor = m[1].toUpperCase();
     const num = parseInt(m[2], 10);
     const pri = FLOOR_ORDER[floor] ?? 50 + floor.charCodeAt(0);

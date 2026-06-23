@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { ArrowLeft, ArrowRightLeft, BedDouble, ChevronDown, Loader2, Plus, Trash2, X } from 'lucide-react';
-import { fetchRoomsWithOccupants, createRoom, deleteRoom } from './services/propertyService';
+import { fetchRoomsWithOccupants, createRoom, deleteRoom, deleteBed } from './services/propertyService';
 import { deleteTenant, moveTenant, updateTenant } from './services/tenantService';
 import { markTenantRecordPaid } from './services/paymentService';
 import { logActivity } from './services/activityService';
@@ -156,15 +156,26 @@ function MoveBedForm({ tenant, fromRoomId, rooms, onConfirm, onCancel, saving })
 
 // ─── Bed row ──────────────────────────────────────────────────────────────────
 
-function BedRow({ bed, roomNumber, roomId, rooms, upiId, onMarkPaid, onMarkUnpaid, onVacate, onMove, onViewTenant }) {
+function BedRow({ bed, roomNumber, roomId, rooms, upiId, onMarkPaid, onMarkUnpaid, onVacate, onMove, onViewTenant, onDeleteBed }) {
   const occ = bed.occupancy;
   const tenant = bed.tenant;
   const isPaid = occ?.payment_status === 'Paid';
   const [confirming, setConfirming] = useState(false);
   const [moving, setMoving] = useState(false);
   const [moveSaving, setMoveSaving] = useState(false);
+  const [confirmDeleteBed, setConfirmDeleteBed] = useState(false);
 
   if (!tenant) {
+    if (confirmDeleteBed) {
+      return (
+        <ConfirmInline
+          message={<>Delete Bed <span className="font-semibold">{bed.bed_number}</span>?</>}
+          confirmLabel="Delete"
+          onCancel={() => setConfirmDeleteBed(false)}
+          onConfirm={async () => { await onDeleteBed(bed.id); }}
+        />
+      );
+    }
     return (
       <div className="flex items-center gap-3 px-4 py-3">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-mist text-xs font-semibold tabular-nums text-slate2 shrink-0">
@@ -172,6 +183,15 @@ function BedRow({ bed, roomNumber, roomId, rooms, upiId, onMarkPaid, onMarkUnpai
         </div>
         <span className="text-sm text-slate2 flex-1">Available</span>
         <StatusBadge status="free" />
+        {onDeleteBed && (
+          <button
+            type="button"
+            onClick={() => setConfirmDeleteBed(true)}
+            className="ml-1 p-1.5 rounded-lg text-slate2 hover:text-coral hover:bg-coral/10 transition-colors"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
       </div>
     );
   }
@@ -313,6 +333,11 @@ function RoomDetail({ room, rooms, selectedPropertyId, upiId, onClose, onAssign,
     onRoomUpdate();
   }
 
+  async function handleDeleteBed(bedId) {
+    await deleteBed(bedId);
+    onRoomUpdate();
+  }
+
   async function handleVacate(tenantId) {
     const bed = room.beds.find(b => b.tenant?.id === tenantId);
     await deleteTenant(tenantId);
@@ -391,6 +416,7 @@ function RoomDetail({ room, rooms, selectedPropertyId, upiId, onClose, onAssign,
             onVacate={handleVacate}
             onMove={handleMove}
             onViewTenant={onViewTenant}
+            onDeleteBed={handleDeleteBed}
           />
         ))}
       </div>
@@ -626,6 +652,7 @@ export default function RoomsPage({ selectedPropertyId, upiId, onAssignBed, onVi
               onClose={() => setSelectedRoom(null)}
               onAssign={handleAssign}
               onRoomUpdate={load}
+              onDeleteRoom={handleDeleteRoom}
               onViewTenant={onViewTenant}
             />
           ) : (
