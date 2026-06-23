@@ -250,6 +250,7 @@ export async function fetchVacatedTenants(propertyId) {
       bed:beds(bed_number)
     `)
     .eq('status', 'ended')
+    .neq('tenant.status', 'deleted')
     .order('end_date', { ascending: false })
     .limit(50);
   if (propertyId) query.eq('property_id', propertyId);
@@ -271,6 +272,7 @@ export async function fetchPendingDeposits(propertyId) {
     .eq('status', 'ended')
     .eq('deposit_status', 'held')
     .gt('deposit_amount', 0)
+    .neq('tenant.status', 'deleted')
     .order('end_date', { ascending: false })
     .limit(20);
   if (propertyId) query.eq('property_id', propertyId);
@@ -290,6 +292,7 @@ export async function fetchMovedOutThisMonth(propertyId) {
     .from('occupancies')
     .select(`*, tenant:tenants!inner(*), room:rooms(room_number), bed:beds(bed_number)`)
     .eq('status', 'ended')
+    .neq('tenant.status', 'deleted')
     .gte('end_date', start)
     .lte('end_date', end)
     .order('end_date', { ascending: false });
@@ -345,7 +348,7 @@ export async function deleteTenant(id) {
 
   const { error: tenantError } = await supabase
     .from('tenants')
-    .update({ status: 'archived' })
+    .update({ status: 'deleted' })
     .eq('id', id);
   if (tenantError) throw tenantError;
 
