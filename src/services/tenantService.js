@@ -324,14 +324,24 @@ export async function deleteTenant(id) {
     return id;
   }
 
-  const occupancy = await fetchOccupancyByTenantId(id);
-  const today = new Date().toISOString().slice(0, 10);
-
-  const { error: occupancyError } = await supabase
+  // For ex-tenants the occupancy is already ended — just archive the tenant record.
+  // For active tenants end the occupancy and free the bed first.
+  const { data: activeOcc } = await supabase
     .from('occupancies')
-    .update({ status: 'ended', end_date: today })
-    .eq('id', occupancy.id);
-  if (occupancyError) throw occupancyError;
+    .select('id, bed_id')
+    .eq('tenant_id', id)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  if (activeOcc) {
+    const today = new Date().toISOString().slice(0, 10);
+    const { error: occupancyError } = await supabase
+      .from('occupancies')
+      .update({ status: 'ended', end_date: today })
+      .eq('id', activeOcc.id);
+    if (occupancyError) throw occupancyError;
+    await setBedStatus(activeOcc.bed_id, 'available');
+  }
 
   const { error: tenantError } = await supabase
     .from('tenants')
@@ -339,6 +349,5 @@ export async function deleteTenant(id) {
     .eq('id', id);
   if (tenantError) throw tenantError;
 
-  await setBedStatus(occupancy.bed_id, 'available');
   return id;
 }
