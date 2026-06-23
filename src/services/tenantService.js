@@ -228,11 +228,21 @@ export async function updateTenant(id, patch) {
 }
 
 export async function returnDeposit(id) {
-  return updateTenant(id, { depositStatus: 'returned' });
+  if (!hasSupabaseConfig) return updateTenant(id, { depositStatus: 'returned' });
+  const { error } = await supabase
+    .from('occupancies')
+    .update({ deposit_status: 'returned' })
+    .eq('tenant_id', id);
+  if (error) throw error;
 }
 
 export async function forfeitDeposit(id) {
-  return updateTenant(id, { depositStatus: 'forfeited' });
+  if (!hasSupabaseConfig) return updateTenant(id, { depositStatus: 'forfeited' });
+  const { error } = await supabase
+    .from('occupancies')
+    .update({ deposit_status: 'forfeited' })
+    .eq('tenant_id', id);
+  if (error) throw error;
 }
 
 export async function moveTenant(tenantId, { roomId, bedId }) {
