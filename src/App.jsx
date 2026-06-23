@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  BarChart2, BedDouble, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight,
+  BarChart2, BedDouble, Camera, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight,
   Home, Loader2, LogOut, MessageCircle, Pencil, Plus, Save, Sparkles, Trash2, UserPlus, Users, X,
 } from 'lucide-react';
 import { createTenant, deleteTenant, fetchTenants, fetchVacatedTenants, forfeitDeposit, returnDeposit, updateTenant } from './services/tenantService';
+import { uploadIdPhoto, saveTenantIdPhoto } from './services/incomeService';
 import { markTenantRecordPaid } from './services/paymentService';
 import { logActivity, fetchRecentActivity } from './services/activityService';
 import { fetchProperties, fetchRoomsWithBeds, updatePropertyUpiId } from './services/propertyService';
@@ -249,9 +250,11 @@ const emptyForm = {
   admissionFee: '500', depositAmount: '500', moveInCollection: '8000',
 };
 
-function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onSubmit, onCancel, saving }) {
+function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onSubmit, onCancel, saving, organizationId }) {
   const [form, setForm] = useState(emptyForm);
   const [phoneError, setPhoneError] = useState('');
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(initialTenant?.idPhotoUrl ?? null);
 
   useEffect(() => {
     if (initialTenant) {
@@ -288,6 +291,13 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
     setForm(f => ({ ...f, moveInCollection: String(rent + fee + dep) }));
   }, [form.monthlyRent, form.admissionFee, form.depositAmount]);
 
+  function handlePhotoChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (!isValidPhone(form.phone)) {
@@ -303,8 +313,9 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
       admissionFee: Number(form.admissionFee || 0),
       depositAmount: Number(form.depositAmount || 0),
       moveInCollection: Number(form.moveInCollection || 0),
+      _photoFile: photoFile,
     });
-    if (!initialTenant) setForm({ ...emptyForm, propertyId: defaultPropertyId ?? '' });
+    if (!initialTenant) { setForm({ ...emptyForm, propertyId: defaultPropertyId ?? '' }); setPhotoFile(null); setPhotoPreview(null); }
   }
 
   const inputCls = 'mt-1.5 w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink';
@@ -413,6 +424,21 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
             <span className="text-xs text-slate2">Rent + Admission + Deposit</span>
           </div>
           <MoneyInput value={form.moveInCollection} onChange={v => set('moveInCollection', v)} />
+        </div>
+
+        {/* ID Photo */}
+        <div>
+          <Label>ID Photo</Label>
+          <div className="mt-1.5 flex items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-border px-3 py-2.5 text-sm font-semibold text-slate2 hover:bg-mist transition-colors">
+              <Camera className="h-4 w-4" />
+              {photoPreview ? 'Retake' : 'Capture ID'}
+              <input type="file" accept="image/*" capture="environment" onChange={handlePhotoChange} className="sr-only" />
+            </label>
+            {photoPreview && (
+              <img src={photoPreview} alt="ID" className="h-12 w-16 rounded-lg object-cover border border-border" />
+            )}
+          </div>
         </div>
 
         <Btn
@@ -1004,6 +1030,7 @@ function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, sa
         onSubmit={editingTenant ? onUpdateTenant : onAddTenant}
         onCancel={onCancelEdit}
         saving={saving}
+        organizationId={properties.find(p => p.id === defaultPropertyId)?.organization_id}
       />
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
@@ -1185,7 +1212,8 @@ export default function App({ session, organizationName, onSignOut } = {}) {
 
   useEffect(() => {
     if (selectedPropertyId) localStorage.setItem('stayops_property', selectedPropertyId);
-    setUpiId(properties.find(p => p.id === selectedPropertyId)?.upi_id ?? '');
+    const selProp = properties.find(p => p.id === selectedPropertyId);
+    setUpiId(selProp?.upi_id ?? '');
     setLoading(cur => cur);
     fetchTenants(selectedPropertyId || null)
       .then(data => { setTenants(data); setLoading(false); })
@@ -1249,7 +1277,15 @@ export default function App({ session, organizationName, onSignOut } = {}) {
   async function handleAdd(tenant) {
     setSaving(true); setError('');
     try {
-      const c = await createTenant({ ...tenant, paymentStatus: 'Unpaid', paymentDate: '' });
+      const { _photoFile, ...rest } = tenant;
+      const c = await createTenant({ ...rest, paymentStatus: 'Unpaid', paymentDate: '' });
+      if (_photoFile && c.id) {
+        const orgId = properties.find(p => p.id === selectedPropertyId)?.organization_id;
+        if (orgId) {
+          const { path } = await uploadIdPhoto(orgId, c.id, _photoFile);
+          await saveTenantIdPhoto(c.id, path);
+        }
+      }
       setTenants(cur => [c, ...cur]);
       setRoomsVersion(v => v + 1);
       logActivity(selectedPropertyId, 'tenant_assigned', `${c.name} assigned to Room ${c.roomNumber} Bed ${c.bedNumber}`);
@@ -1260,7 +1296,15 @@ export default function App({ session, organizationName, onSignOut } = {}) {
   async function handleUpdate(tenant) {
     setSaving(true); setError('');
     try {
-      const u = await updateTenant(editingTenant.id, tenant);
+      const { _photoFile, ...rest } = tenant;
+      const u = await updateTenant(editingTenant.id, rest);
+      if (_photoFile && editingTenant.id) {
+        const orgId = properties.find(p => p.id === selectedPropertyId)?.organization_id;
+        if (orgId) {
+          const { path } = await uploadIdPhoto(orgId, editingTenant.id, _photoFile);
+          await saveTenantIdPhoto(editingTenant.id, path);
+        }
+      }
       setTenants(cur => cur.map(t => t.id === editingTenant.id ? u : t));
       setEditingTenant(null);
       setToast(`${u.name} updated`);
@@ -1409,7 +1453,7 @@ export default function App({ session, organizationName, onSignOut } = {}) {
               </div>
               <div className={page !== 'finance' ? 'hidden' : enteringPage === 'finance' ? 'page-enter' : undefined}>
                 {mountedPages.has('finance') && (
-                  <FinancePage selectedPropertyId={selectedPropertyId} tenants={tenants} onViewTenant={setViewingTenantId} upiId={upiId} />
+                  <FinancePage selectedPropertyId={selectedPropertyId} organizationId={properties.find(p => p.id === selectedPropertyId)?.organization_id} tenants={tenants} onViewTenant={setViewingTenantId} upiId={upiId} />
                 )}
               </div>
             </>

@@ -64,6 +64,7 @@ function toUiTenant(occupancy) {
     depositStatus: occupancy.deposit_status ?? 'none',
     admissionFee: Number(occupancy.admission_fee ?? 0),
     moveInCollection: Number(occupancy.move_in_collection ?? 0),
+    id_photo_url: occupancy.tenant.id_photo_url ?? null,
   };
 }
 

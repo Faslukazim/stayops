@@ -6,7 +6,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   ChevronLeft, ChevronRight, CheckCircle2, Plus, Trash2,
   Loader2, CreditCard, TrendingUp, TrendingDown, Calendar,
-  AlertCircle, ArrowDownCircle, ArrowUpCircle,
+  AlertCircle, ArrowDownCircle, ArrowUpCircle, Camera, User,
 } from 'lucide-react';
 import {
   fmt, Label, Card, SectionHeader, Btn, IconBtn,
@@ -24,6 +24,9 @@ import {
   fetchExpenses, addExpense, deleteExpense,
   fetchCashFlowItems, addCashFlowItem, deleteCashFlowItem,
 } from './services/financeService';
+import {
+  INCOME_CATEGORIES, fetchIncomeRecords, addIncomeRecord, deleteIncomeRecord, uploadIdPhoto,
+} from './services/incomeService';
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -66,6 +69,7 @@ function MonthNav({ ym, onChange }) {
 
 const SUB_TABS = [
   { id: 'rent',      label: 'Rent'      },
+  { id: 'income',    label: 'Income'    },
   { id: 'expenses',  label: 'Expenses'  },
   { id: 'pl',        label: 'P&L'       },
   { id: 'cashflow',  label: 'Cashflow'  },
@@ -504,10 +508,260 @@ function ExpensesTab({ selectedPropertyId }) {
 
 // ─── P&L Tab ──────────────────────────────────────────────────────────────────
 
+// ─── Income Tab ──────────────────────────────────────────────────────────────
+
+const EMPTY_EXTRA = { category: 'Food', amount: '', date: new Date().toISOString().slice(0, 10), note: '', tenant_id: '' };
+const EMPTY_GUEST = { name: '', phone: '', daily_rate: '', days: '1', date: new Date().toISOString().slice(0, 10), note: '' };
+
+function IncomeTab({ selectedPropertyId, organizationId, tenants }) {
+  const [ym, setYm] = useState(ymNow);
+  const [records, setRecords] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState('extra'); // 'extra' | 'guest'
+  const [extraForm, setExtraForm] = useState(EMPTY_EXTRA);
+  const [guestForm, setGuestForm] = useState(EMPTY_GUEST);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!selectedPropertyId) return;
+    setLoading(true);
+    fetchIncomeRecords(selectedPropertyId, ym)
+      .then(setRecords).catch(console.error).finally(() => setLoading(false));
+  }, [selectedPropertyId, ym]);
+
+  const total = records.reduce((s, r) => s + Number(r.amount), 0);
+
+  function handlePhotoChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  }
+
+  async function handleAddExtra(e) {
+    e.preventDefault();
+    if (!extraForm.amount) return;
+    setSaving(true); setError('');
+    try {
+      const rec = await addIncomeRecord(selectedPropertyId, organizationId, {
+        type: 'extra_charge',
+        category: extraForm.category,
+        amount: Number(extraForm.amount),
+        date: extraForm.date,
+        note: extraForm.note || null,
+        tenant_id: extraForm.tenant_id || null,
+      });
+      setRecords(cur => [rec, ...cur]);
+      setExtraForm(EMPTY_EXTRA);
+    } catch (e) { setError(e.message); }
+    finally { setSaving(false); }
+  }
+
+  async function handleAddGuest(e) {
+    e.preventDefault();
+    if (!guestForm.name || !guestForm.daily_rate) return;
+    setSaving(true); setError('');
+    try {
+      const days = Number(guestForm.days) || 1;
+      const dailyRate = Number(guestForm.daily_rate);
+      const amount = dailyRate * days;
+      let photoPath = null;
+      const tempId = crypto.randomUUID();
+      if (photoFile && organizationId) {
+        const { path } = await uploadIdPhoto(organizationId, tempId, photoFile);
+        photoPath = path;
+      }
+      const rec = await addIncomeRecord(selectedPropertyId, organizationId, {
+        type: 'day_guest',
+        amount,
+        daily_rate: dailyRate,
+        days,
+        name: guestForm.name,
+        phone: guestForm.phone || null,
+        date: guestForm.date,
+        note: guestForm.note || null,
+        id_photo_url: photoPath,
+      });
+      setRecords(cur => [rec, ...cur]);
+      setGuestForm(EMPTY_GUEST);
+      setPhotoFile(null);
+      setPhotoPreview(null);
+    } catch (e) { setError(e.message); }
+    finally { setSaving(false); }
+  }
+
+  async function handleDelete(id) {
+    try {
+      await deleteIncomeRecord(id);
+      setRecords(cur => cur.filter(r => r.id !== id));
+    } catch (e) { setError(e.message); }
+  }
+
+  const inputCls = 'w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink';
+  const selectCls = `${inputCls} appearance-none`;
+
+  return (
+    <div className="flex flex-col gap-4">
+      <MonthNav ym={ym} onChange={setYm} />
+
+      {/* Form */}
+      <Card className="overflow-hidden">
+        {/* Mode toggle */}
+        <div className="flex border-b border-border">
+          {[{ id: 'extra', label: 'Extra Charge' }, { id: 'guest', label: 'Day Guest' }].map(t => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setMode(t.id)}
+              className={`flex-1 py-2.5 text-sm font-semibold transition-colors ${mode === t.id ? 'bg-ink text-white' : 'text-slate2 hover:bg-mist'}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {mode === 'extra' ? (
+          <form onSubmit={handleAddExtra} className="p-4 flex flex-col gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <Label>Category</Label>
+                <select value={extraForm.category} onChange={e => setExtraForm(f => ({ ...f, category: e.target.value }))} className={`mt-1.5 ${selectCls}`}>
+                  {INCOME_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <Label>Amount (₹)</Label>
+                <input required type="number" min="1" value={extraForm.amount} onChange={e => setExtraForm(f => ({ ...f, amount: e.target.value }))} className={`mt-1.5 ${inputCls}`} placeholder="500" />
+              </label>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <Label>Date</Label>
+                <input required type="date" value={extraForm.date} onChange={e => setExtraForm(f => ({ ...f, date: e.target.value }))} className={`mt-1.5 ${inputCls}`} />
+              </label>
+              <label className="block">
+                <Label>Tenant <span className="font-normal text-slate2">(optional)</span></Label>
+                <select value={extraForm.tenant_id} onChange={e => setExtraForm(f => ({ ...f, tenant_id: e.target.value }))} className={`mt-1.5 ${selectCls}`}>
+                  <option value="">— None —</option>
+                  {tenants.map(t => <option key={t.id} value={t.id}>{t.name} · {t.roomNumber}</option>)}
+                </select>
+              </label>
+            </div>
+            <label className="block">
+              <Label>Note <span className="font-normal text-slate2">(optional)</span></Label>
+              <input type="text" value={extraForm.note} onChange={e => setExtraForm(f => ({ ...f, note: e.target.value }))} className={`mt-1.5 ${inputCls}`} placeholder="e.g. 3 days food" />
+            </label>
+            {error && <p className="text-xs text-coral">{error}</p>}
+            <Btn variant="primary" disabled={saving} className="w-full justify-center py-2.5" {...{ type: 'submit' }}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              Add Charge
+            </Btn>
+          </form>
+        ) : (
+          <form onSubmit={handleAddGuest} className="p-4 flex flex-col gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block">
+                <Label>Guest Name</Label>
+                <input required type="text" value={guestForm.name} onChange={e => setGuestForm(f => ({ ...f, name: e.target.value }))} className={`mt-1.5 ${inputCls}`} placeholder="Full name" />
+              </label>
+              <label className="block">
+                <Label>Phone <span className="font-normal text-slate2">(optional)</span></Label>
+                <input type="tel" value={guestForm.phone} onChange={e => setGuestForm(f => ({ ...f, phone: e.target.value }))} className={`mt-1.5 ${inputCls}`} placeholder="9876543210" inputMode="tel" />
+              </label>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="block">
+                <Label>Daily Rate (₹)</Label>
+                <input required type="number" min="1" value={guestForm.daily_rate} onChange={e => setGuestForm(f => ({ ...f, daily_rate: e.target.value }))} className={`mt-1.5 ${inputCls}`} placeholder="300" />
+              </label>
+              <label className="block">
+                <Label>No. of Days</Label>
+                <input required type="number" min="1" value={guestForm.days} onChange={e => setGuestForm(f => ({ ...f, days: e.target.value }))} className={`mt-1.5 ${inputCls}`} />
+              </label>
+              <label className="block">
+                <Label>Date</Label>
+                <input required type="date" value={guestForm.date} onChange={e => setGuestForm(f => ({ ...f, date: e.target.value }))} className={`mt-1.5 ${inputCls}`} />
+              </label>
+            </div>
+            {/* Total preview */}
+            {guestForm.daily_rate && guestForm.days && (
+              <div className="rounded-lg bg-mist px-3 py-2 flex items-center justify-between">
+                <Label>Total</Label>
+                <span className="text-sm font-bold text-ink tabular-nums">{fmt(Number(guestForm.daily_rate) * Number(guestForm.days))}</span>
+              </div>
+            )}
+            {/* ID Photo */}
+            <div>
+              <Label>ID Photo</Label>
+              <div className="mt-1.5 flex items-center gap-3">
+                <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-border px-3 py-2.5 text-sm font-semibold text-slate2 hover:bg-mist transition-colors">
+                  <Camera className="h-4 w-4" />
+                  {photoPreview ? 'Retake' : 'Capture ID'}
+                  <input type="file" accept="image/*" capture="environment" onChange={handlePhotoChange} className="sr-only" />
+                </label>
+                {photoPreview && (
+                  <img src={photoPreview} alt="ID preview" className="h-12 w-16 rounded-lg object-cover border border-border" />
+                )}
+              </div>
+            </div>
+            <label className="block">
+              <Label>Note <span className="font-normal text-slate2">(optional)</span></Label>
+              <input type="text" value={guestForm.note} onChange={e => setGuestForm(f => ({ ...f, note: e.target.value }))} className={`mt-1.5 ${inputCls}`} placeholder="e.g. room 2 overnight" />
+            </label>
+            {error && <p className="text-xs text-coral">{error}</p>}
+            <Btn variant="primary" disabled={saving} className="w-full justify-center py-2.5" {...{ type: 'submit' }}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <User className="h-4 w-4" />}
+              Add Day Guest
+            </Btn>
+          </form>
+        )}
+      </Card>
+
+      {/* Records list */}
+      {loading ? (
+        <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-slate2" /></div>
+      ) : records.length === 0 ? (
+        <Card><EmptyState icon={TrendingUp} title="No income recorded" body="Add extra charges or day guests above." /></Card>
+      ) : (
+        <Card className="overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-border">
+            <Label>Recorded Income</Label>
+            <span className="text-sm font-bold text-leaf tabular-nums">{fmt(total)}</span>
+          </div>
+          <div className="divide-y divide-border">
+            {records.map(r => (
+              <div key={r.id} className="flex items-center gap-3 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-ink truncate">
+                    {r.type === 'day_guest' ? `${r.name} (Day Guest)` : r.category}
+                  </p>
+                  <p className="text-xs text-slate2">
+                    {r.date}
+                    {r.type === 'day_guest' && r.days > 1 && ` · ${r.days} days @ ${fmt(r.daily_rate)}/day`}
+                    {r.note && ` · ${r.note}`}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-sm font-bold tabular-nums text-leaf">{fmt(r.amount)}</span>
+                  <IconBtn variant="danger" onClick={() => handleDelete(r.id)}><Trash2 className="h-4 w-4" /></IconBtn>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 function PLTab({ selectedPropertyId, tenants }) {
   const [ym, setYm] = useState(ymNow);
   const [records, setRecords] = useState([]);
   const [expenses, setExpenses] = useState([]);
+  const [incomeRecs, setIncomeRecs] = useState([]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -516,8 +770,9 @@ function PLTab({ selectedPropertyId, tenants }) {
     Promise.all([
       fetchPaymentRecords(selectedPropertyId, ym),
       fetchExpenses(selectedPropertyId, ym),
+      fetchIncomeRecords(selectedPropertyId, ym),
     ])
-      .then(([recs, exps]) => { setRecords(recs); setExpenses(exps); })
+      .then(([recs, exps, incs]) => { setRecords(recs); setExpenses(exps); setIncomeRecs(incs); })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [selectedPropertyId, ym]);
@@ -530,7 +785,8 @@ function PLTab({ selectedPropertyId, tenants }) {
   const curYM = ymNow();
   const newThisMonth = tenants.filter(t => t.joinDate?.startsWith(ym));
   const admissionIncome = newThisMonth.reduce((s, t) => s + Number(t.admissionFee || 0), 0);
-  const totalIncome = rentCollected + admissionIncome;
+  const otherIncome = incomeRecs.reduce((s, r) => s + Number(r.amount), 0);
+  const totalIncome = rentCollected + admissionIncome + otherIncome;
 
   // Expenses
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
@@ -593,6 +849,15 @@ function PLTab({ selectedPropertyId, tenants }) {
                     <p className="text-xs text-slate2">{newThisMonth.length} new tenant{newThisMonth.length !== 1 ? 's' : ''}</p>
                   </div>
                   <span className="text-sm font-semibold tabular-nums text-ink">{fmt(admissionIncome)}</span>
+                </div>
+              )}
+              {otherIncome > 0 && (
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div>
+                    <p className="text-sm text-ink">Extra Charges & Day Guests</p>
+                    <p className="text-xs text-slate2">{incomeRecs.length} record{incomeRecs.length !== 1 ? 's' : ''}</p>
+                  </div>
+                  <span className="text-sm font-semibold tabular-nums text-ink">{fmt(otherIncome)}</span>
                 </div>
               )}
             </div>
@@ -841,7 +1106,7 @@ function CashflowTab({ selectedPropertyId, tenants }) {
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
-export default function FinancePage({ selectedPropertyId, tenants, onViewTenant, upiId }) {
+export default function FinancePage({ selectedPropertyId, organizationId, tenants, onViewTenant, upiId }) {
   const [tab, setTab] = useState(() => {
     const saved = localStorage.getItem('stayops_finance_tab');
     return SUB_TABS.find(t => t.id === saved) ? saved : 'rent';
@@ -856,6 +1121,7 @@ export default function FinancePage({ selectedPropertyId, tenants, onViewTenant,
     <div className="flex flex-col gap-4">
       <SubNav active={tab} onChange={changeTab} />
       {tab === 'rent'     && <RentTab     selectedPropertyId={selectedPropertyId} onViewTenant={onViewTenant} upiId={upiId} />}
+      {tab === 'income'   && <IncomeTab   selectedPropertyId={selectedPropertyId} organizationId={organizationId} tenants={tenants} />}
       {tab === 'expenses' && <ExpensesTab selectedPropertyId={selectedPropertyId} />}
       {tab === 'pl'       && <PLTab       selectedPropertyId={selectedPropertyId} tenants={tenants} />}
       {tab === 'cashflow' && <CashflowTab selectedPropertyId={selectedPropertyId} tenants={tenants} />}

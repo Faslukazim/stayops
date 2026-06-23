@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { X, Phone, MessageCircle, CheckCircle2, Pencil, Trash2, Loader2 } from 'lucide-react';
 import { fmt, Label, Btn, IconBtn, ConfirmInline, CollectModal } from './components/ui';
 import { fetchTenantPaymentHistory } from './services/paymentService';
+import { getIdPhotoUrl } from './services/incomeService';
 import { computeTenantStatus, STATUS } from './utils/paymentStatus';
 
 function ordinal(n) {
@@ -23,6 +24,13 @@ export default function TenantProfile({ tenant, properties, onClose, onCollect, 
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [showCollect, setShowCollect] = useState(false);
+  const [idPhotoUrl, setIdPhotoUrl] = useState(null);
+
+  useEffect(() => {
+    if (tenant.id_photo_url) {
+      getIdPhotoUrl(tenant.id_photo_url).then(url => setIdPhotoUrl(url));
+    }
+  }, [tenant.id_photo_url]);
 
   useEffect(() => {
     setLoadingHistory(true);
@@ -132,6 +140,16 @@ export default function TenantProfile({ tenant, properties, onClose, onCollect, 
                   </p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* ID Photo */}
+          {idPhotoUrl && (
+            <div className="rounded-xl border border-border p-4">
+              <Label>ID Photo</Label>
+              <a href={idPhotoUrl} target="_blank" rel="noreferrer" className="mt-2 block">
+                <img src={idPhotoUrl} alt="Tenant ID" className="w-full max-h-48 object-cover rounded-lg border border-border" />
+              </a>
             </div>
           )}
 
