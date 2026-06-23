@@ -12,13 +12,22 @@ export async function fetchBookings(propertyId) {
   return data;
 }
 
-export async function createBooking(propertyId, organizationId, { roomId, bedId, name, phone, advanceAmount, expectedJoinDate }) {
+export async function createBooking(propertyId, _organizationId, { roomId, bedId, name, phone, advanceAmount, expectedJoinDate }) {
   if (!hasSupabaseConfig) return null;
+
+  // Always resolve org from the property to avoid null org_id RLS failures
+  const { data: prop, error: propErr } = await supabase
+    .from('properties')
+    .select('organization_id')
+    .eq('id', propertyId)
+    .single();
+  if (propErr) throw propErr;
+
   const { data, error } = await supabase
     .from('bookings')
     .insert({
       property_id: propertyId,
-      organization_id: organizationId,
+      organization_id: prop.organization_id,
       room_id: roomId,
       bed_id: bedId,
       name,
