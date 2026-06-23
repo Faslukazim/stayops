@@ -1,4 +1,4 @@
-const CACHE = 'stayops-v1';
+const CACHE = 'stayops-v2';
 
 // Cache static assets on install
 self.addEventListener('install', e => {
