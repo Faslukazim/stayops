@@ -19,7 +19,7 @@ function makeSvg(size) {
     fill="black"
     text-anchor="middle"
     letter-spacing="-${Math.round(size * 0.008)}"
-  >StayB</text>
+  >S</text>
 </svg>`;
 }
 
