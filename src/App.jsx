@@ -4,7 +4,7 @@ import {
   Home, Loader2, LogOut, MessageCircle, Pencil, Plus, Save, Sparkles, Trash2, UserPlus, Users, X,
 } from 'lucide-react';
 import { createTenant, deleteTenant, fetchTenants, fetchVacatedTenants, forfeitDeposit, returnDeposit, updateTenant } from './services/tenantService';
-import { uploadIdPhoto, saveTenantIdPhoto } from './services/incomeService';
+import { addIncomeRecord, uploadIdPhoto, saveTenantIdPhoto } from './services/incomeService';
 import { markTenantRecordPaid } from './services/paymentService';
 import { logActivity, fetchRecentActivity } from './services/activityService';
 import { fetchProperties, fetchRoomsWithBeds, updatePropertyUpiId } from './services/propertyService';
@@ -250,11 +250,19 @@ const emptyForm = {
   admissionFee: '500', depositAmount: '500', moveInCollection: '8000',
 };
 
-function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onSubmit, onCancel, saving, organizationId }) {
+const EMPTY_DAY_GUEST = { name: '', phone: '', daily_rate: '', days: '1', date: new Date().toISOString().slice(0, 10) };
+
+function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onSubmit, onCancel, saving, organizationId, onAddDayGuest }) {
   const [form, setForm] = useState(emptyForm);
   const [phoneError, setPhoneError] = useState('');
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(initialTenant?.idPhotoUrl ?? null);
+  const [dayGuestMode, setDayGuestMode] = useState(false);
+  const [guestForm, setGuestForm] = useState(EMPTY_DAY_GUEST);
+  const [guestSaving, setGuestSaving] = useState(false);
+  const [guestError, setGuestError] = useState('');
+  const [guestPhotoFile, setGuestPhotoFile] = useState(null);
+  const [guestPhotoPreview, setGuestPhotoPreview] = useState(null);
 
   useEffect(() => {
     if (initialTenant) {
@@ -298,6 +306,26 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
     setPhotoPreview(URL.createObjectURL(file));
   }
 
+  function handleGuestPhotoChange(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setGuestPhotoFile(file);
+    setGuestPhotoPreview(URL.createObjectURL(file));
+  }
+
+  async function handleAddDayGuest(e) {
+    e.preventDefault();
+    if (!guestForm.name || !guestForm.daily_rate) return;
+    setGuestSaving(true); setGuestError('');
+    try {
+      await onAddDayGuest({ ...guestForm, photoFile: guestPhotoFile });
+      setGuestForm(EMPTY_DAY_GUEST);
+      setGuestPhotoFile(null);
+      setGuestPhotoPreview(null);
+    } catch (err) { setGuestError(err.message); }
+    finally { setGuestSaving(false); }
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     if (!isValidPhone(form.phone)) {
@@ -320,15 +348,73 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
 
   const inputCls = 'mt-1.5 w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink';
 
+  const inputCls2 = 'w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink';
+
   return (
     <Card className="overflow-hidden">
       <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
         <h2 className="font-semibold text-ink">{initialTenant ? 'Edit tenant' : 'Add tenant'}</h2>
-        {initialTenant
-          ? <IconBtn variant="ghost" onClick={onCancel}><X className="h-4 w-4" /></IconBtn>
-          : <Plus className="h-4 w-4 text-slate2" />
-        }
+        <div className="flex items-center gap-2">
+          {!initialTenant && (
+            <div className="flex rounded-lg border border-border overflow-hidden text-xs font-semibold">
+              <button type="button" onClick={() => setDayGuestMode(false)} className={`px-3 py-1.5 transition-colors ${!dayGuestMode ? 'bg-ink text-white' : 'text-slate2 hover:bg-mist'}`}>Monthly</button>
+              <button type="button" onClick={() => setDayGuestMode(true)}  className={`px-3 py-1.5 transition-colors ${dayGuestMode  ? 'bg-ink text-white' : 'text-slate2 hover:bg-mist'}`}>Day Guest</button>
+            </div>
+          )}
+          {initialTenant && <IconBtn variant="ghost" onClick={onCancel}><X className="h-4 w-4" /></IconBtn>}
+        </div>
       </div>
+
+      {dayGuestMode && !initialTenant ? (
+        <form onSubmit={handleAddDayGuest} className="p-4 flex flex-col gap-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block">
+              <Label>Name</Label>
+              <input required type="text" value={guestForm.name} onChange={e => setGuestForm(f => ({ ...f, name: e.target.value }))} className={`mt-1.5 ${inputCls2}`} placeholder="Guest name" />
+            </label>
+            <label className="block">
+              <Label>Phone <span className="text-slate2 font-normal">(optional)</span></Label>
+              <input type="tel" value={guestForm.phone} onChange={e => setGuestForm(f => ({ ...f, phone: e.target.value }))} className={`mt-1.5 ${inputCls2}`} placeholder="9876543210" inputMode="tel" />
+            </label>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="block">
+              <Label>Daily Rate (₹)</Label>
+              <input required type="number" min="1" value={guestForm.daily_rate} onChange={e => setGuestForm(f => ({ ...f, daily_rate: e.target.value }))} className={`mt-1.5 ${inputCls2}`} placeholder="300" />
+            </label>
+            <label className="block">
+              <Label>No. of Days</Label>
+              <input required type="number" min="1" value={guestForm.days} onChange={e => setGuestForm(f => ({ ...f, days: e.target.value }))} className={`mt-1.5 ${inputCls2}`} />
+            </label>
+            <label className="block">
+              <Label>Date</Label>
+              <input required type="date" value={guestForm.date} onChange={e => setGuestForm(f => ({ ...f, date: e.target.value }))} className={`mt-1.5 ${inputCls2}`} />
+            </label>
+          </div>
+          {guestForm.daily_rate && guestForm.days && (
+            <div className="rounded-lg bg-mist px-3 py-2.5 flex items-center justify-between">
+              <Label>Total</Label>
+              <span className="text-sm font-bold text-ink tabular-nums">{fmt(Number(guestForm.daily_rate) * Number(guestForm.days))}</span>
+            </div>
+          )}
+          <div>
+            <Label>ID Photo</Label>
+            <div className="mt-1.5 flex items-center gap-3">
+              <label className="flex items-center gap-2 cursor-pointer rounded-lg border border-border px-3 py-2.5 text-sm font-semibold text-slate2 hover:bg-mist transition-colors">
+                <Camera className="h-4 w-4" />
+                {guestPhotoPreview ? 'Retake' : 'Capture ID'}
+                <input type="file" accept="image/*" capture="environment" onChange={handleGuestPhotoChange} className="sr-only" />
+              </label>
+              {guestPhotoPreview && <img src={guestPhotoPreview} alt="ID" className="h-12 w-16 rounded-lg object-cover border border-border" />}
+            </div>
+          </div>
+          {guestError && <p className="text-xs text-coral">{guestError}</p>}
+          <Btn variant="primary" disabled={guestSaving} className="w-full py-3 justify-center" {...{ type: 'submit' }}>
+            {guestSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Add Day Guest
+          </Btn>
+        </form>
+      ) : (
       <form onSubmit={handleSubmit} className="p-4 flex flex-col gap-4">
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
@@ -452,6 +538,7 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
           {initialTenant ? 'Save changes' : 'Add tenant'}
         </Btn>
       </form>
+      )}
     </Card>
   );
 }
@@ -1052,7 +1139,7 @@ function UpiSettings({ propertyId, upiId, onSave }) {
   );
 }
 
-function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, saving, roomPrefill, upiId, onAddTenant, onUpdateTenant, onCancelEdit, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onReturnDeposit, onForfeitDeposit, selectedPropertyId }) {
+function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, saving, roomPrefill, upiId, onAddTenant, onUpdateTenant, onCancelEdit, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onReturnDeposit, onForfeitDeposit, onAddDayGuest, selectedPropertyId }) {
   const [query, setQuery] = useState('');
   const [showPast, setShowPast] = useState(false);
   const [vacated, setVacated] = useState([]);
@@ -1107,6 +1194,7 @@ function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, sa
         onCancel={onCancelEdit}
         saving={saving}
         organizationId={properties.find(p => p.id === defaultPropertyId)?.organization_id}
+        onAddDayGuest={onAddDayGuest}
       />
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
@@ -1348,6 +1436,29 @@ export default function App({ session, organizationName, onSignOut } = {}) {
     finally { setSaving(false); }
   }
 
+  async function handleAddDayGuestRecord({ name, phone, daily_rate, days, date, photoFile }) {
+    const orgId = properties.find(p => p.id === selectedPropertyId)?.organization_id;
+    if (!orgId) throw new Error('No property selected');
+    const amount = Number(daily_rate) * Number(days);
+    let photoPath = null;
+    if (photoFile) {
+      const tempId = crypto.randomUUID();
+      const { path } = await uploadIdPhoto(orgId, tempId, photoFile);
+      photoPath = path;
+    }
+    await addIncomeRecord(selectedPropertyId, orgId, {
+      type: 'day_guest',
+      amount,
+      daily_rate: Number(daily_rate),
+      days: Number(days),
+      name,
+      phone: phone || null,
+      date,
+      id_photo_url: photoPath,
+    });
+    setToast(`Day guest ${name} recorded`);
+  }
+
   async function handleUpdate(tenant) {
     setSaving(true); setError('');
     try {
@@ -1504,6 +1615,7 @@ export default function App({ session, organizationName, onSignOut } = {}) {
                   onMarkUnpaid={t => patchPayment(t, 'Unpaid')}
                   onReturnDeposit={handleReturnDeposit}
                   onForfeitDeposit={handleForfeitDeposit}
+                  onAddDayGuest={handleAddDayGuestRecord}
                 />
               </div>
               <div className={page !== 'finance' ? 'hidden' : enteringPage === 'finance' ? 'page-enter' : undefined}>
