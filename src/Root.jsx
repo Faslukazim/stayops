@@ -5,6 +5,8 @@ import { getSession, onAuthChange, fetchMemberships } from './services/authServi
 import App from './App.jsx';
 import AuthPage from './AuthPage.jsx';
 import OnboardingPage from './OnboardingPage.jsx';
+import LandingPage from './LandingPage.jsx';
+import WaitlistPage from './WaitlistPage.jsx';
 
 function FullScreenLoader() {
   return (
@@ -15,11 +17,10 @@ function FullScreenLoader() {
 }
 
 export default function Root() {
-  // session: undefined = still loading, null = signed out, object = signed in
   const [session, setSession] = useState(undefined);
-  // memberships: undefined = not loaded yet, array = loaded
   const [memberships, setMemberships] = useState(undefined);
   const [membershipError, setMembershipError] = useState('');
+  const [showAuth, setShowAuth] = useState(false);
 
   const loadMemberships = useCallback(async () => {
     setMembershipError('');
@@ -32,7 +33,6 @@ export default function Root() {
     }
   }, []);
 
-  // Initial session + subscribe to auth changes
   useEffect(() => {
     if (!hasSupabaseConfig) return;
     let active = true;
@@ -41,44 +41,68 @@ export default function Root() {
       .catch(() => { if (active) setSession(null); });
     const unsub = onAuthChange(s => {
       setSession(s);
-      setMemberships(undefined); // re-check membership for the new session
+      setMemberships(undefined);
     });
     return () => { active = false; unsub(); };
   }, []);
 
-  // Load memberships whenever we have a session but haven't loaded them
   useEffect(() => {
     if (!hasSupabaseConfig) return;
     if (session && memberships === undefined) loadMemberships();
   }, [session, memberships, loadMemberships]);
 
-  // No backend configured → run the app in local (localStorage) mode, no auth.
   if (!hasSupabaseConfig) return <App />;
 
   if (session === undefined) return <FullScreenLoader />;
 
-  if (!session) return <AuthPage onAuthed={setSession} />;
+  // ── Not signed in ──────────────────────────────────────────────────────────
+  if (!session) {
+    if (showAuth) {
+      return (
+        <AuthPage
+          onAuthed={setSession}
+          onBack={() => setShowAuth(false)}
+        />
+      );
+    }
+    return <LandingPage onShowAuth={() => setShowAuth(true)} />;
+  }
 
+  // ── Signed in — loading memberships ────────────────────────────────────────
   if (memberships === undefined) return <FullScreenLoader />;
 
+  const signOut = () => { setSession(null); setMemberships(undefined); setShowAuth(false); };
+
+  // ── No org yet → onboarding ────────────────────────────────────────────────
   if (memberships.length === 0) {
     return (
       <OnboardingPage
         email={session.user?.email}
         onCreated={loadMemberships}
-        onSignOut={() => { setSession(null); setMemberships(undefined); }}
+        onSignOut={signOut}
       />
     );
   }
 
   const activeOrg = memberships[0];
 
+  // ── Org not approved → waitlist ────────────────────────────────────────────
+  if (!activeOrg.approved) {
+    return (
+      <WaitlistPage
+        email={session.user?.email}
+        onSignOut={signOut}
+      />
+    );
+  }
+
+  // ── Approved → app ─────────────────────────────────────────────────────────
   return (
     <App
       session={session}
       organizationName={activeOrg?.name}
       membershipError={membershipError}
-      onSignOut={() => { setSession(null); setMemberships(undefined); }}
+      onSignOut={signOut}
     />
   );
 }

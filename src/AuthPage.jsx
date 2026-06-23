@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Loader2, Mail, Lock, ArrowRight } from 'lucide-react';
-import { signIn, signUp } from './services/authService';
+import { Loader2, Mail, Lock, ArrowRight, ArrowLeft } from 'lucide-react';
+import { signIn } from './services/authService';
 import { Btn } from './components/ui';
 
 function StayOpsMark() {
@@ -12,40 +12,36 @@ function StayOpsMark() {
   );
 }
 
-export default function AuthPage({ onAuthed }) {
-  const [mode, setMode] = useState('signin'); // 'signin' | 'signup'
+export default function AuthPage({ onAuthed, onBack }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [info, setInfo] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const isSignup = mode === 'signup';
   const inputCls = 'w-full rounded-lg border border-border bg-white pl-10 pr-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink';
 
   async function handleSubmit(e) {
     e.preventDefault();
-    setError(''); setInfo('');
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
-      return;
-    }
+    setError('');
     setBusy(true);
     try {
-      if (isSignup) {
-        const { session, needsConfirmation } = await signUp(email, password);
-        if (needsConfirmation) {
-          setInfo('Account created. Check your email to confirm, then sign in.');
-          setMode('signin');
-        } else if (session) {
-          onAuthed?.(session);
-        }
-      } else {
-        const session = await signIn(email, password);
-        onAuthed?.(session);
-      }
+      const session = await signIn(email, password);
+      onAuthed?.(session);
     } catch (err) {
-      setError(err.message || 'Something went wrong. Please try again.');
+      setError(err.message || 'Incorrect email or password.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function tryDemo() {
+    setError('');
+    setBusy(true);
+    try {
+      const session = await signIn('demo@stayops.com', 'demo2026');
+      onAuthed?.(session);
+    } catch {
+      setError('Demo unavailable right now.');
     } finally {
       setBusy(false);
     }
@@ -54,23 +50,25 @@ export default function AuthPage({ onAuthed }) {
   return (
     <div className="min-h-screen bg-mist flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-sm">
+
+        {onBack && (
+          <button
+            type="button"
+            onClick={onBack}
+            className="mb-6 inline-flex items-center gap-1.5 text-sm text-slate2 hover:text-ink transition-colors"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" /> Back
+          </button>
+        )}
+
         <div className="mb-8 flex justify-center">
           <StayOpsMark />
         </div>
 
         <div className="rounded-2xl bg-white border border-border shadow-card p-6">
-          <h1 className="text-lg font-bold text-ink text-center">
-            {isSignup ? 'Create your account' : 'Welcome back'}
-          </h1>
-          <p className="mt-1 text-sm text-slate2 text-center">
-            {isSignup ? 'Start managing your property in minutes.' : 'Sign in to your StayOps workspace.'}
-          </p>
+          <h1 className="text-lg font-bold text-ink text-center">Welcome back</h1>
+          <p className="mt-1 text-sm text-slate2 text-center">Sign in to your StayOps workspace.</p>
 
-          {info && (
-            <div className="mt-4 rounded-lg border border-leaf/30 bg-leaf/5 px-3 py-2.5 text-sm text-leaf">
-              {info}
-            </div>
-          )}
           {error && (
             <div className="mt-4 rounded-lg border border-coral/30 bg-coral/5 px-3 py-2.5 text-sm text-coral">
               {error}
@@ -101,31 +99,43 @@ export default function AuthPage({ onAuthed }) {
                 <input
                   type="password"
                   required
-                  autoComplete={isSignup ? 'new-password' : 'current-password'}
+                  autoComplete="current-password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   className={inputCls}
-                  placeholder={isSignup ? 'At least 6 characters' : 'Your password'}
+                  placeholder="Your password"
                 />
               </div>
             </label>
 
             <Btn variant="primary" className="w-full justify-center py-3 mt-1" disabled={busy} {...{ type: 'submit' }}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-              {isSignup ? 'Create account' : 'Sign in'}
+              Sign in
             </Btn>
           </form>
+
+          <div className="mt-4 border-t border-border pt-4">
+            <button
+              type="button"
+              onClick={tryDemo}
+              disabled={busy}
+              className="w-full rounded-lg border border-border bg-mist px-3 py-2.5 text-sm font-semibold text-slate2 hover:bg-border hover:text-ink transition-colors disabled:opacity-50"
+            >
+              Try live demo instead
+            </button>
+          </div>
         </div>
 
         <p className="mt-5 text-center text-sm text-slate2">
-          {isSignup ? 'Already have an account?' : 'New to StayOps?'}{' '}
-          <button
-            type="button"
-            onClick={() => { setMode(isSignup ? 'signin' : 'signup'); setError(''); setInfo(''); }}
+          Don't have access?{' '}
+          <a
+            href="https://wa.me/919747424217?text=Hi%2C%20I%27d%20like%20to%20get%20access%20to%20StayOps"
+            target="_blank"
+            rel="noopener noreferrer"
             className="font-semibold text-ink hover:underline"
           >
-            {isSignup ? 'Sign in' : 'Create an account'}
-          </button>
+            Request access →
+          </a>
         </p>
       </div>
     </div>

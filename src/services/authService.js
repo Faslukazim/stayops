@@ -61,13 +61,14 @@ export async function fetchMemberships() {
   if (!hasSupabaseConfig) return [];
   const { data, error } = await supabase
     .from('memberships')
-    .select('organization_id, role, organization:organizations(name)')
+    .select('organization_id, role, organization:organizations(name, approved)')
     .order('created_at', { ascending: true });
   if (error) throw error;
   return (data ?? []).map(m => ({
     organizationId: m.organization_id,
     role: m.role,
     name: m.organization?.name ?? 'Organization',
+    approved: m.organization?.approved ?? false,
   }));
 }
 
