@@ -61,7 +61,7 @@ function StayOpsLogo() {
 
 function Header({ properties, selectedPropertyId, onPropertyChange, loadingProperties, onSignOut }) {
   return (
-    <header className="bg-white border-b border-border px-4 py-3 sm:px-6">
+    <header className="sticky top-0 z-40 bg-white border-b border-border px-4 py-3 sm:px-6">
       <div className="mx-auto max-w-5xl">
         <div className="flex items-center justify-between gap-4">
           <StayOpsLogo />
