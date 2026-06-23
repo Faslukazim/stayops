@@ -3,7 +3,7 @@ import {
   BarChart2, BedDouble, Camera, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight,
   Home, Loader2, LogOut, MessageCircle, Pencil, Plus, Save, Sparkles, Trash2, UserPlus, Users, X,
 } from 'lucide-react';
-import { createTenant, deleteTenant, fetchTenants, fetchVacatedTenants, forfeitDeposit, returnDeposit, updateTenant } from './services/tenantService';
+import { createTenant, deleteTenant, fetchTenants, fetchVacatedTenants, fetchPendingDeposits, fetchMovedOutThisMonth, forfeitDeposit, returnDeposit, updateTenant } from './services/tenantService';
 import { addIncomeRecord, uploadIdPhoto, saveTenantIdPhoto } from './services/incomeService';
 import { markTenantRecordPaid } from './services/paymentService';
 import { logActivity, fetchRecentActivity } from './services/activityService';
@@ -1061,7 +1061,10 @@ const ACTIVITY_DOT = {
 };
 
 function RecentActivity({ propertyId }) {
-  const events = fetchRecentActivity(propertyId);
+  const [events, setEvents] = useState([]);
+  useEffect(() => {
+    fetchRecentActivity(propertyId).then(setEvents).catch(() => {});
+  }, [propertyId]);
   if (events.length === 0) return null;
   return (
     <Card className="overflow-hidden">
@@ -1079,11 +1082,65 @@ function RecentActivity({ propertyId }) {
   );
 }
 
-function DashboardPage({ tenants, totalBeds, selectedPropertyId, upiId, onGoToFinance, onGoToRooms, onAddTenant, onAssignTenant, onMarkPaid, onViewTenant }) {
+function DepositsToReview({ tenants, onReturnDeposit, onForfeitDeposit }) {
+  if (tenants.length === 0) return null;
+  return (
+    <Card className="overflow-hidden">
+      <SectionHeader title={`Deposits to Review (${tenants.length})`} />
+      <div className="divide-y divide-border">
+        {tenants.map(t => (
+          <div key={t.id} className="px-4 py-3 flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold text-ink">{t.name}</p>
+                <p className="text-xs text-slate2">Room {t.roomNumber} · Left {t.endDate ?? '—'}</p>
+              </div>
+              <span className="text-sm font-bold tabular-nums text-amber">{fmt(t.depositAmount)}</span>
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => onReturnDeposit(t)} className="flex-1 text-xs font-semibold text-amber border border-amber/30 rounded-lg px-2.5 py-2 hover:bg-amber/5 transition-colors">Return Deposit</button>
+              <button type="button" onClick={() => onForfeitDeposit(t)} className="flex-1 text-xs font-semibold text-coral border border-coral/30 rounded-lg px-2.5 py-2 hover:bg-coral/5 transition-colors">Not Refundable</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function MovedOutThisMonth({ tenants }) {
+  if (tenants.length === 0) return null;
+  const month = new Date().toLocaleString('default', { month: 'long' });
+  return (
+    <Card className="overflow-hidden">
+      <SectionHeader title={`Moved Out · ${month} (${tenants.length})`} />
+      <div className="divide-y divide-border">
+        {tenants.map(t => (
+          <div key={t.id} className="flex items-center gap-3 px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-ink truncate">{t.name}</p>
+              <p className="text-xs text-slate2">Room {t.roomNumber} · Bed {t.bedNumber}</p>
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-xs text-slate2">{t.endDate}</p>
+              <p className={`text-xs font-semibold mt-0.5 ${t.depositStatus === 'returned' ? 'text-leaf' : t.depositStatus === 'forfeited' ? 'text-coral' : 'text-amber'}`}>
+                {t.depositStatus === 'returned' ? 'Deposit returned' : t.depositStatus === 'forfeited' ? 'Deposit forfeited' : 'Deposit pending'}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function DashboardPage({ tenants, totalBeds, selectedPropertyId, upiId, pendingDeposits, movedOutThisMonth, onGoToFinance, onGoToRooms, onAddTenant, onAssignTenant, onMarkPaid, onViewTenant, onReturnDeposit, onForfeitDeposit }) {
   return (
     <div className="flex flex-col gap-4">
       <BusinessHealth tenants={tenants} totalBeds={totalBeds} />
       <AttentionRequired tenants={tenants} upiId={upiId} onMarkPaid={onMarkPaid} onViewTenant={onViewTenant} />
+      <DepositsToReview tenants={pendingDeposits} onReturnDeposit={onReturnDeposit} onForfeitDeposit={onForfeitDeposit} />
+      <MovedOutThisMonth tenants={movedOutThisMonth} />
       <MoveInHealth tenants={tenants} />
       <FinancialHealth selectedPropertyId={selectedPropertyId} totalBeds={totalBeds} tenants={tenants} />
       <QuickActions
@@ -1323,6 +1380,8 @@ export default function App({ session, organizationName, onSignOut } = {}) {
   const [toast, setToast] = useState('');
   const [seeding, setSeeding] = useState(false);
   const [upiId, setUpiId] = useState('');
+  const [pendingDeposits, setPendingDeposits] = useState([]);
+  const [movedOutThisMonth, setMovedOutThisMonth] = useState([]);
 
   useEffect(() => {
     if (!toast) return;
@@ -1361,6 +1420,10 @@ export default function App({ session, organizationName, onSignOut } = {}) {
     fetchTenants(selectedPropertyId || null)
       .then(data => { setTenants(data); setLoading(false); })
       .catch(e => { setError(e.message); setLoading(false); });
+    if (selectedPropertyId) {
+      fetchPendingDeposits(selectedPropertyId).then(setPendingDeposits).catch(() => {});
+      fetchMovedOutThisMonth(selectedPropertyId).then(setMovedOutThisMonth).catch(() => {});
+    }
   }, [selectedPropertyId, properties]);
 
   useEffect(() => {
@@ -1431,7 +1494,7 @@ export default function App({ session, organizationName, onSignOut } = {}) {
       }
       setTenants(cur => [c, ...cur]);
       setRoomsVersion(v => v + 1);
-      logActivity(selectedPropertyId, 'tenant_assigned', `${c.name} assigned to Room ${c.roomNumber} Bed ${c.bedNumber}`);
+      logActivity(selectedPropertyId, properties.find(p=>p.id===selectedPropertyId)?.organization_id, 'tenant_assigned', `${c.name} assigned to Room ${c.roomNumber} Bed ${c.bedNumber}`);
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
   }
@@ -1485,7 +1548,7 @@ export default function App({ session, organizationName, onSignOut } = {}) {
       setTenants(cur => cur.filter(t => t.id !== tenant.id));
       if (editingTenant?.id === tenant.id) setEditingTenant(null);
       setRoomsVersion(v => v + 1);
-      logActivity(selectedPropertyId, 'tenant_vacated', `${tenant.name} vacated Room ${tenant.roomNumber} Bed ${tenant.bedNumber}`);
+      logActivity(selectedPropertyId, properties.find(p=>p.id===selectedPropertyId)?.organization_id, 'tenant_vacated', `${tenant.name} vacated Room ${tenant.roomNumber} Bed ${tenant.bedNumber}`);
     } catch (e) { setError(e.message); }
   }
 
@@ -1504,7 +1567,8 @@ export default function App({ session, organizationName, onSignOut } = {}) {
         paymentDate: status === 'Paid' ? new Date().toISOString().slice(0, 10) : '',
       });
       setTenants(cur => cur.map(t => t.id === tenant.id ? u : t));
-      logActivity(selectedPropertyId, status === 'Paid' ? 'payment_paid' : 'payment_unpaid',
+      const orgId = properties.find(p=>p.id===selectedPropertyId)?.organization_id;
+      logActivity(selectedPropertyId, orgId, status === 'Paid' ? 'payment_paid' : 'payment_unpaid',
         `${tenant.name} marked ${status.toLowerCase()} — Room ${tenant.roomNumber}`);
     } catch (e) { setError(e.message); }
   }
@@ -1513,7 +1577,9 @@ export default function App({ session, organizationName, onSignOut } = {}) {
     try {
       const u = await returnDeposit(tenant.id);
       setTenants(cur => cur.map(t => t.id === tenant.id ? u : t));
-      logActivity(selectedPropertyId, 'deposit_returned', `${tenant.name} deposit returned`);
+      setPendingDeposits(cur => cur.filter(t => t.id !== tenant.id));
+      const orgId = properties.find(p=>p.id===selectedPropertyId)?.organization_id;
+      logActivity(selectedPropertyId, orgId, 'deposit_returned', `${tenant.name} deposit returned`);
     } catch (e) { setError(e.message); }
   }
 
@@ -1521,7 +1587,9 @@ export default function App({ session, organizationName, onSignOut } = {}) {
     try {
       const u = await forfeitDeposit(tenant.id);
       setTenants(cur => cur.map(t => t.id === tenant.id ? u : t));
-      logActivity(selectedPropertyId, 'deposit_forfeited', `${tenant.name} deposit marked not refundable`);
+      setPendingDeposits(cur => cur.filter(t => t.id !== tenant.id));
+      const orgId = properties.find(p=>p.id===selectedPropertyId)?.organization_id;
+      logActivity(selectedPropertyId, orgId, 'deposit_forfeited', `${tenant.name} deposit marked not refundable`);
     } catch (e) { setError(e.message); }
   }
 
@@ -1570,11 +1638,15 @@ export default function App({ session, organizationName, onSignOut } = {}) {
                   totalBeds={totalBeds}
                   selectedPropertyId={selectedPropertyId}
                   upiId={upiId}
+                  pendingDeposits={pendingDeposits}
+                  movedOutThisMonth={movedOutThisMonth}
                   onGoToFinance={() => navigateTo('finance')}
                   onGoToRooms={() => navigateTo('rooms')}
                   onAssignTenant={() => navigateTo('rooms')}
                   onMarkPaid={setCollectingTenant}
                   onViewTenant={setViewingTenantId}
+                  onReturnDeposit={handleReturnDeposit}
+                  onForfeitDeposit={handleForfeitDeposit}
                   onAddTenant={() => {
                     setEditingTenant(null);
                     setRoomPrefill(null);

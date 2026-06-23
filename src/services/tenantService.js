@@ -262,6 +262,43 @@ export async function fetchVacatedTenants(propertyId) {
   }));
 }
 
+// P4: Vacated tenants with deposit still pending
+export async function fetchPendingDeposits(propertyId) {
+  if (!hasSupabaseConfig) return [];
+  const query = supabase
+    .from('occupancies')
+    .select(`*, tenant:tenants!inner(*), room:rooms(room_number), bed:beds(bed_number)`)
+    .eq('status', 'ended')
+    .eq('deposit_status', 'held')
+    .gt('deposit_amount', 0)
+    .order('end_date', { ascending: false })
+    .limit(20);
+  if (propertyId) query.eq('property_id', propertyId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data.map(o => ({ ...toUiTenant(o), endDate: o.end_date ?? null, status: 'vacated' }));
+}
+
+// P1: Tenants who vacated in the current calendar month
+export async function fetchMovedOutThisMonth(propertyId) {
+  if (!hasSupabaseConfig) return [];
+  const ym = new Date().toISOString().slice(0, 7);
+  const start = `${ym}-01`;
+  const [y, m] = ym.split('-').map(Number);
+  const end = new Date(y, m, 0).toISOString().slice(0, 10);
+  const query = supabase
+    .from('occupancies')
+    .select(`*, tenant:tenants!inner(*), room:rooms(room_number), bed:beds(bed_number)`)
+    .eq('status', 'ended')
+    .gte('end_date', start)
+    .lte('end_date', end)
+    .order('end_date', { ascending: false });
+  if (propertyId) query.eq('property_id', propertyId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data.map(o => ({ ...toUiTenant(o), endDate: o.end_date ?? null, status: 'vacated' }));
+}
+
 export async function deleteTenant(id) {
   if (!hasSupabaseConfig) {
     writeLocalTenants(readLocalTenants().filter((t) => t.id !== id));
