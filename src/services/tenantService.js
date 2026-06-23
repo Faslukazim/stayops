@@ -299,6 +299,25 @@ export async function fetchMovedOutThisMonth(propertyId) {
   return data.map(o => ({ ...toUiTenant(o), endDate: o.end_date ?? null, status: 'vacated' }));
 }
 
+// Proper vacate: set end date + settle deposit in one step
+export async function vacateTenant(id, { endDate, depositAction = 'later' } = {}) {
+  if (!hasSupabaseConfig) {
+    writeLocalTenants(readLocalTenants().filter(t => t.id !== id));
+    return id;
+  }
+  const occupancy = await fetchOccupancyByTenantId(id);
+  const patch = { status: 'ended', end_date: endDate || new Date().toISOString().slice(0, 10) };
+  if (depositAction === 'returned') patch.deposit_status = 'returned';
+  if (depositAction === 'forfeited') patch.deposit_status = 'forfeited';
+
+  const { error: occErr } = await supabase.from('occupancies').update(patch).eq('id', occupancy.id);
+  if (occErr) throw occErr;
+  const { error: tenErr } = await supabase.from('tenants').update({ status: 'archived' }).eq('id', id);
+  if (tenErr) throw tenErr;
+  await setBedStatus(occupancy.bed_id, 'available');
+  return id;
+}
+
 export async function deleteTenant(id) {
   if (!hasSupabaseConfig) {
     writeLocalTenants(readLocalTenants().filter((t) => t.id !== id));
