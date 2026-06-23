@@ -23,9 +23,9 @@ export async function createRoom(propertyId, { roomNumber, beds }) {
     bed_number: String(i + 1),
     status: 'available',
   }));
-  const { error: bedErr } = await supabase.from('beds').insert(bedRows);
+  const { data: createdBeds, error: bedErr } = await supabase.from('beds').insert(bedRows).select();
   if (bedErr) throw bedErr;
-  return room;
+  return { ...room, beds: createdBeds };
 }
 
 export async function deleteRoom(roomId) {

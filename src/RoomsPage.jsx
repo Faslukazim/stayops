@@ -338,7 +338,7 @@ function RoomDetail({ room, rooms, selectedPropertyId, upiId, onClose, onAssign,
             <h2 className="font-semibold text-ink text-lg">Room {room.room_number}</h2>
           </div>
           <p className="mt-0.5 text-sm text-slate2 tabular-nums">
-            {occupied} occupied · {capacity - occupied} vacant · {Math.round((occupied / capacity) * 100)}% full
+            {occupied} occupied · {capacity - occupied} vacant{capacity > 0 ? ` · ${Math.round((occupied / capacity) * 100)}% full` : ''}
             {revenue > 0 && ` · ${fmt(revenue)}/mo`}
             {unpaid > 0 && <> · <span className="text-coral">{fmt(pendingAmt)} pending</span></>}
           </p>
