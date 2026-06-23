@@ -5,7 +5,7 @@ self.addEventListener('install', e => {
   self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE).then(c =>
-      c.addAll(['/', '/manifest.json', '/favicon.svg'])
+      c.addAll(['/', '/manifest.json', '/favicon.png'])
     )
   );
 });
