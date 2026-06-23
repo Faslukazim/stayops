@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
-import { ArrowLeft, ArrowRightLeft, BedDouble, ChevronDown, Loader2, Plus, Trash2, X } from 'lucide-react';
+import { ArrowLeft, ArrowRightLeft, BedDouble, Bookmark, ChevronDown, Loader2, Plus, Trash2, X } from 'lucide-react';
 import { fetchRoomsWithOccupants, createRoom, deleteRoom, deleteBed } from './services/propertyService';
 import { deleteTenant, moveTenant, updateTenant } from './services/tenantService';
+import { createBooking, cancelBooking, convertBooking } from './services/bookingService';
 import { markTenantRecordPaid } from './services/paymentService';
 import { logActivity } from './services/activityService';
 import {
@@ -154,18 +155,117 @@ function MoveBedForm({ tenant, fromRoomId, rooms, onConfirm, onCancel, saving })
   );
 }
 
+// ─── Book bed form ────────────────────────────────────────────────────────────
+
+function BookBedForm({ bedNumber, onSave, onCancel }) {
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [advance, setAdvance] = useState('');
+  const [joinDate, setJoinDate] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+  const inputCls = 'w-full rounded-lg border border-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink';
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!name.trim()) { setErr('Name is required.'); return; }
+    setErr(''); setSaving(true);
+    try {
+      await onSave({ name: name.trim(), phone: phone.trim(), advanceAmount: Number(advance) || 0, expectedJoinDate: joinDate || null });
+    } catch (ex) {
+      setErr(ex.message);
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="border-t border-border bg-mist px-4 py-3">
+      <p className="text-xs font-semibold text-ink mb-3">Book Bed {bedNumber}</p>
+      {err && <p className="mb-2 text-xs text-coral">{err}</p>}
+      <form onSubmit={handleSubmit} className="flex flex-col gap-2">
+        <input autoFocus value={name} onChange={e => setName(e.target.value)} className={inputCls} placeholder="Visitor name *" />
+        <input value={phone} onChange={e => setPhone(e.target.value)} className={inputCls} placeholder="Phone number" />
+        <div className="grid grid-cols-2 gap-2">
+          <input type="number" min="0" value={advance} onChange={e => setAdvance(e.target.value)} className={inputCls} placeholder="Advance paid (₹)" />
+          <input type="date" value={joinDate} onChange={e => setJoinDate(e.target.value)} className={inputCls} />
+        </div>
+        <div className="flex gap-2 pt-1">
+          <Btn variant="secondary" size="sm" onClick={onCancel} {...{ type: 'button' }}>Cancel</Btn>
+          <Btn variant="primary" size="sm" disabled={saving} {...{ type: 'submit' }}>
+            {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Confirm Booking
+          </Btn>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 // ─── Bed row ──────────────────────────────────────────────────────────────────
 
-function BedRow({ bed, roomNumber, roomId, rooms, upiId, onMarkPaid, onMarkUnpaid, onVacate, onMove, onViewTenant, onDeleteBed }) {
+function BedRow({ bed, roomNumber, roomId, rooms, upiId, onMarkPaid, onMarkUnpaid, onVacate, onMove, onViewTenant, onDeleteBed, onBook, onCancelBooking, onConvertBooking }) {
   const occ = bed.occupancy;
   const tenant = bed.tenant;
+  const booking = bed.booking;
   const isPaid = occ?.payment_status === 'Paid';
   const [confirming, setConfirming] = useState(false);
   const [moving, setMoving] = useState(false);
   const [moveSaving, setMoveSaving] = useState(false);
   const [confirmDeleteBed, setConfirmDeleteBed] = useState(false);
+  const [booking_, setBooking_] = useState(false);
+  const [confirmCancelBooking, setConfirmCancelBooking] = useState(false);
 
   if (!tenant) {
+    // Booked bed
+    if (booking) {
+      if (confirmCancelBooking) {
+        return (
+          <ConfirmInline
+            message={<>Cancel booking for <span className="font-semibold">{booking.name}</span>?</>}
+            confirmLabel="Cancel Booking"
+            onCancel={() => setConfirmCancelBooking(false)}
+            onConfirm={async () => { await onCancelBooking(booking.id, bed.id); }}
+          />
+        );
+      }
+      return (
+        <div className="px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber/10 text-xs font-semibold tabular-nums text-amber shrink-0">
+              {bed.bed_number}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-ink truncate">{booking.name}</p>
+              <p className="text-xs text-slate2 truncate">
+                {booking.advance_amount > 0 ? `Advance ₹${booking.advance_amount}` : 'No advance'}
+                {booking.expected_join_date ? ` · Joining ${booking.expected_join_date}` : ''}
+              </p>
+            </div>
+            <span className="shrink-0 rounded-full bg-amber/10 px-2 py-0.5 text-[10px] font-semibold text-amber">Booked</span>
+          </div>
+          <div className="flex items-center gap-1 mt-1.5 pl-11">
+            <button
+              type="button"
+              onClick={() => onConvertBooking(booking)}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold text-leaf hover:bg-leaf/10 transition-colors"
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Convert to Tenant
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmCancelBooking(true)}
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold text-coral hover:bg-coral/10 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+              Cancel
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Available bed
     if (confirmDeleteBed) {
       return (
         <ConfirmInline
@@ -176,12 +276,23 @@ function BedRow({ bed, roomNumber, roomId, rooms, upiId, onMarkPaid, onMarkUnpai
         />
       );
     }
+    if (booking_) {
+      return <BookBedForm bedNumber={bed.bed_number} onSave={onBook} onCancel={() => setBooking_(false)} />;
+    }
     return (
       <div className="flex items-center gap-3 px-4 py-3">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-mist text-xs font-semibold tabular-nums text-slate2 shrink-0">
           {bed.bed_number}
         </div>
         <span className="text-sm text-slate2 flex-1">Available</span>
+        <button
+          type="button"
+          onClick={() => setBooking_(true)}
+          className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold text-amber hover:bg-amber/10 transition-colors"
+        >
+          <Bookmark className="h-3.5 w-3.5" />
+          Book
+        </button>
         <StatusBadge status="free" />
         {onDeleteBed && (
           <button
@@ -298,7 +409,7 @@ function BedRow({ bed, roomNumber, roomId, rooms, upiId, onMarkPaid, onMarkUnpai
 
 // ─── Room detail panel ────────────────────────────────────────────────────────
 
-function RoomDetail({ room, rooms, selectedPropertyId, upiId, onClose, onAssign, onRoomUpdate, onViewTenant, onDeleteRoom }) {
+function RoomDetail({ room, rooms, selectedPropertyId, organizationId, upiId, onClose, onAssign, onRoomUpdate, onViewTenant, onDeleteRoom, onConvertBooking }) {
   const occupied = room.beds.filter(b => b.tenant).length;
   const capacity = room.beds.length;
   const unpaid = room.beds.filter(b => b.occupancy?.payment_status === 'Unpaid').length;
@@ -335,6 +446,20 @@ function RoomDetail({ room, rooms, selectedPropertyId, upiId, onClose, onAssign,
 
   async function handleDeleteBed(bedId) {
     await deleteBed(bedId);
+    onRoomUpdate();
+  }
+
+  async function handleBook(bed, { name, phone, advanceAmount, expectedJoinDate }) {
+    await createBooking(selectedPropertyId, organizationId, {
+      roomId: room.id,
+      bedId: bed.id,
+      name, phone, advanceAmount, expectedJoinDate,
+    });
+    onRoomUpdate();
+  }
+
+  async function handleCancelBooking(bookingId, bedId) {
+    await cancelBooking(bookingId, bedId);
     onRoomUpdate();
   }
 
@@ -417,6 +542,9 @@ function RoomDetail({ room, rooms, selectedPropertyId, upiId, onClose, onAssign,
             onMove={handleMove}
             onViewTenant={onViewTenant}
             onDeleteBed={handleDeleteBed}
+            onBook={data => handleBook(bed, data)}
+            onCancelBooking={handleCancelBooking}
+            onConvertBooking={onConvertBooking}
           />
         ))}
       </div>
@@ -520,7 +648,7 @@ function AddRoomSheet({ onSave, onCancel }) {
 
 // ─── Rooms page ───────────────────────────────────────────────────────────────
 
-export default function RoomsPage({ selectedPropertyId, upiId, onAssignBed, onViewTenant }) {
+export default function RoomsPage({ selectedPropertyId, organizationId, upiId, onAssignBed, onViewTenant, onConvertBooking }) {
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -612,12 +740,14 @@ export default function RoomsPage({ selectedPropertyId, upiId, onAssignBed, onVi
             room={selectedRoom}
             rooms={rooms}
             selectedPropertyId={selectedPropertyId}
+            organizationId={organizationId}
             upiId={upiId}
             onClose={() => setSelectedRoom(null)}
             onAssign={handleAssign}
             onRoomUpdate={load}
             onDeleteRoom={handleDeleteRoom}
             onViewTenant={onViewTenant}
+            onConvertBooking={onConvertBooking}
           />
         </Card>
       </div>

@@ -10,6 +10,7 @@ import { logActivity, fetchRecentActivity } from './services/activityService';
 import { fetchProperties, fetchRoomsWithBeds, updatePropertyUpiId } from './services/propertyService';
 import { readExpensesSync } from './services/financeService';
 import { seedSampleWorkspace, clearSampleWorkspace } from './services/seedService';
+import { fetchBookings, convertBooking } from './services/bookingService';
 import { hasSupabaseConfig } from './lib/supabase';
 import { STATUS, computeTenantStatus, tenantDaysOverdue } from './utils/paymentStatus';
 import RoomsPage from './RoomsPage';
@@ -1201,6 +1202,35 @@ function DepositsToReview({ tenants, onReturnDeposit, onForfeitDeposit }) {
   );
 }
 
+function PendingBookings({ bookings, onConvertBooking, onGoToRooms }) {
+  if (bookings.length === 0) return null;
+  return (
+    <Card className="overflow-hidden">
+      <SectionHeader title={`Bed Bookings (${bookings.length})`} />
+      <div className="divide-y divide-border">
+        {bookings.map(b => (
+          <div key={b.id} className="px-4 py-3 flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-ink truncate">{b.name}</p>
+              <p className="text-xs text-slate2">
+                {b.advance_amount > 0 ? `Advance ₹${b.advance_amount}` : 'No advance'}
+                {b.expected_join_date ? ` · Joining ${b.expected_join_date}` : ''}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onConvertBooking(b)}
+              className="shrink-0 text-xs font-semibold text-leaf border border-leaf/30 rounded-lg px-2.5 py-1.5 hover:bg-leaf/5 transition-colors"
+            >
+              Convert
+            </button>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 function MovedOutThisMonth({ tenants }) {
   if (tenants.length === 0) return null;
   const month = new Date().toLocaleString('default', { month: 'long' });
@@ -1227,11 +1257,12 @@ function MovedOutThisMonth({ tenants }) {
   );
 }
 
-function DashboardPage({ tenants, totalBeds, selectedPropertyId, upiId, pendingDeposits, movedOutThisMonth, onGoToFinance, onGoToRooms, onAddTenant, onAssignTenant, onMarkPaid, onViewTenant, onReturnDeposit, onForfeitDeposit }) {
+function DashboardPage({ tenants, totalBeds, selectedPropertyId, upiId, pendingDeposits, movedOutThisMonth, pendingBookings, onGoToFinance, onGoToRooms, onAddTenant, onAssignTenant, onMarkPaid, onViewTenant, onReturnDeposit, onForfeitDeposit, onConvertBooking }) {
   return (
     <div className="flex flex-col gap-4">
       <BusinessHealth tenants={tenants} totalBeds={totalBeds} />
       <AttentionRequired tenants={tenants} upiId={upiId} onMarkPaid={onMarkPaid} onViewTenant={onViewTenant} />
+      <PendingBookings bookings={pendingBookings ?? []} onConvertBooking={onConvertBooking} onGoToRooms={onGoToRooms} />
       <DepositsToReview tenants={pendingDeposits} onReturnDeposit={onReturnDeposit} onForfeitDeposit={onForfeitDeposit} />
       <MovedOutThisMonth tenants={movedOutThisMonth} />
       <MoveInHealth tenants={tenants} />
@@ -1478,6 +1509,7 @@ export default function App({ session, organizationName, onSignOut } = {}) {
   const [upiId, setUpiId] = useState('');
   const [pendingDeposits, setPendingDeposits] = useState([]);
   const [movedOutThisMonth, setMovedOutThisMonth] = useState([]);
+  const [pendingBookings, setPendingBookings] = useState([]);
 
   useEffect(() => {
     if (!toast) return;
@@ -1519,6 +1551,7 @@ export default function App({ session, organizationName, onSignOut } = {}) {
     if (selectedPropertyId) {
       fetchPendingDeposits(selectedPropertyId).then(setPendingDeposits).catch(() => {});
       fetchMovedOutThisMonth(selectedPropertyId).then(setMovedOutThisMonth).catch(() => {});
+      fetchBookings(selectedPropertyId).then(setPendingBookings).catch(() => {});
     }
   }, [selectedPropertyId, properties]);
 
@@ -1539,6 +1572,11 @@ export default function App({ session, organizationName, onSignOut } = {}) {
     if (selectedPropertyId) return properties.find(p => p.id === selectedPropertyId)?.total_beds ?? 0;
     return properties.reduce((s, p) => s + (p.total_beds ?? 0), 0);
   }, [properties, selectedPropertyId]);
+
+  const organizationId = useMemo(
+    () => properties.find(p => p.id === selectedPropertyId)?.organization_id ?? null,
+    [properties, selectedPropertyId],
+  );
 
   const selectedProperty = useMemo(
     () => properties.find(p => p.id === selectedPropertyId) ?? null,
@@ -1635,6 +1673,16 @@ export default function App({ session, organizationName, onSignOut } = {}) {
       setToast(`${u.name} updated`);
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
+  }
+
+  async function handleConvertBooking(booking) {
+    // Mark booking as converted, pre-fill tenant form with visitor details
+    await convertBooking(booking.id);
+    setRoomPrefill({ propertyId: selectedPropertyId, roomId: booking.room_id, bedId: booking.bed_id });
+    setEditingTenant({ name: booking.name, phone: booking.phone, _fromBooking: true });
+    fetchBookings(selectedPropertyId).then(setPendingBookings).catch(() => {});
+    setRoomsVersion(v => v + 1);
+    navigateTo('tenants');
   }
 
   async function handleVacate(tenant, { endDate, depositAction } = {}) {
@@ -1751,6 +1799,7 @@ export default function App({ session, organizationName, onSignOut } = {}) {
                   upiId={upiId}
                   pendingDeposits={pendingDeposits}
                   movedOutThisMonth={movedOutThisMonth}
+                  pendingBookings={pendingBookings}
                   onGoToFinance={() => navigateTo('finance')}
                   onGoToRooms={() => navigateTo('rooms')}
                   onAssignTenant={() => navigateTo('rooms')}
@@ -1758,6 +1807,7 @@ export default function App({ session, organizationName, onSignOut } = {}) {
                   onViewTenant={setViewingTenantId}
                   onReturnDeposit={handleReturnDeposit}
                   onForfeitDeposit={handleForfeitDeposit}
+                  onConvertBooking={handleConvertBooking}
                   onAddTenant={() => {
                     setEditingTenant(null);
                     setRoomPrefill(null);
@@ -1773,9 +1823,11 @@ export default function App({ session, organizationName, onSignOut } = {}) {
                   <RoomsPage
                     key={`${selectedPropertyId}-${roomsVersion}`}
                     selectedPropertyId={selectedPropertyId}
+                    organizationId={organizationId}
                     upiId={upiId}
                     onAssignBed={prefill => { setRoomPrefill(prefill); navigateTo('tenants'); }}
                     onViewTenant={setViewingTenantId}
+                    onConvertBooking={handleConvertBooking}
                   />
                 )}
               </div>
