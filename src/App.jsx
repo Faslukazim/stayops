@@ -456,6 +456,69 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
   );
 }
 
+// ─── vacated tenant card ─────────────────────────────────────────────────────
+
+function VacatedTenantCard({ tenant: t, onReturnDeposit, onForfeitDeposit, onDelete }) {
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const depositPending = t.depositAmount > 0 && t.depositStatus !== 'returned' && t.depositStatus !== 'forfeited';
+
+  return (
+    <Card className="overflow-hidden opacity-85">
+      <div className="p-4 flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-semibold text-ink truncate">{t.name}</p>
+            <p className="text-sm text-slate2">{t.phone}</p>
+          </div>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-mist text-slate2">Vacated</span>
+            <IconBtn variant="danger" onClick={() => setConfirmDelete(true)}><Trash2 className="h-4 w-4" /></IconBtn>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2 rounded-lg bg-mist p-3">
+          <div><Label>Room</Label><p className="mt-0.5 font-semibold">{t.roomNumber}</p></div>
+          <div><Label>Bed</Label><p className="mt-0.5 font-semibold">{t.bedNumber}</p></div>
+          <div><Label>Rent</Label><p className="mt-0.5 font-semibold tabular-nums">{fmt(t.monthlyRent)}</p></div>
+        </div>
+
+        <div className="flex gap-4 text-xs text-slate2">
+          {t.joinDate && <span>Joined {t.joinDate}</span>}
+          {t.endDate && <span>· Left {t.endDate}</span>}
+        </div>
+
+        {t.depositAmount > 0 && (
+          <div className="rounded-lg border border-border px-3 py-2.5 flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Security Deposit</Label>
+                <p className="mt-0.5 text-sm font-semibold tabular-nums">{fmt(t.depositAmount)}</p>
+              </div>
+              <span className={`text-xs font-semibold ${t.depositStatus === 'returned' ? 'text-leaf' : t.depositStatus === 'forfeited' ? 'text-coral' : 'text-amber'}`}>
+                {t.depositStatus === 'returned' ? 'Returned' : t.depositStatus === 'forfeited' ? 'Not refundable' : 'Pending'}
+              </span>
+            </div>
+            {depositPending && (
+              <div className="flex gap-2">
+                <Btn variant="primary" className="flex-1 justify-center py-2 text-xs" onClick={() => onReturnDeposit(t)}>Return</Btn>
+                <Btn variant="danger" className="flex-1 justify-center py-2 text-xs" onClick={() => onForfeitDeposit(t)}>Forfeit</Btn>
+              </div>
+            )}
+          </div>
+        )}
+
+        {confirmDelete && (
+          <ConfirmInline
+            message={`Delete ${t.name}'s record permanently?`}
+            onConfirm={() => { setConfirmDelete(false); onDelete(t); }}
+            onCancel={() => setConfirmDelete(false)}
+          />
+        )}
+      </div>
+    </Card>
+  );
+}
+
 // ─── tenant card ─────────────────────────────────────────────────────────────
 
 function TenantCard({ tenant, upiId, onEdit, onDelete, onMarkPaid, onMarkUnpaid, onReturnDeposit, onForfeitDeposit }) {
@@ -1004,6 +1067,19 @@ function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, sa
       .finally(() => setLoadingVacated(false));
   }, [showPast, selectedPropertyId]);
 
+  function handleVacatedReturn(tenant) {
+    onReturnDeposit(tenant);
+    setVacated(cur => cur.map(t => t.id === tenant.id ? { ...t, depositStatus: 'returned' } : t));
+  }
+  function handleVacatedForfeit(tenant) {
+    onForfeitDeposit(tenant);
+    setVacated(cur => cur.map(t => t.id === tenant.id ? { ...t, depositStatus: 'forfeited' } : t));
+  }
+  function handleVacatedDelete(tenant) {
+    onDelete(tenant);
+    setVacated(cur => cur.filter(t => t.id !== tenant.id));
+  }
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return tenants;
@@ -1091,34 +1167,13 @@ function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, sa
           <>
             {query && <p className="text-xs text-slate2 px-1">{filteredVacated.length} past tenants</p>}
             {filteredVacated.map(t => (
-              <Card key={t.id} className="overflow-hidden opacity-80">
-                <div className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-semibold text-ink truncate">{t.name}</p>
-                      <p className="text-sm text-slate2">{t.phone}</p>
-                    </div>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded bg-mist text-slate2 shrink-0">Vacated</span>
-                  </div>
-                  <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg bg-mist p-3">
-                    <div><Label>Room</Label><p className="mt-0.5 font-semibold">{t.roomNumber}</p></div>
-                    <div><Label>Bed</Label><p className="mt-0.5 font-semibold">{t.bedNumber}</p></div>
-                    <div><Label>Rent</Label><p className="mt-0.5 font-semibold tabular-nums">{fmt(t.monthlyRent)}</p></div>
-                  </div>
-                  <div className="mt-2 flex gap-4 text-xs text-slate2">
-                    {t.joinDate && <span>Joined {t.joinDate}</span>}
-                    {t.endDate && <span>· Left {t.endDate}</span>}
-                  </div>
-                  {t.depositAmount > 0 && (
-                    <div className="mt-2 flex items-center justify-between rounded-lg border border-border px-3 py-2">
-                      <div><Label>Deposit</Label><p className="mt-0.5 text-sm font-semibold tabular-nums">{fmt(t.depositAmount)}</p></div>
-                      <span className={`text-xs font-semibold ${t.depositStatus === 'returned' ? 'text-leaf' : t.depositStatus === 'forfeited' ? 'text-coral' : 'text-amber'}`}>
-                        {t.depositStatus === 'returned' ? 'Returned' : t.depositStatus === 'forfeited' ? 'Not refundable' : 'Pending'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </Card>
+              <VacatedTenantCard
+                key={t.id}
+                tenant={t}
+                onReturnDeposit={handleVacatedReturn}
+                onForfeitDeposit={handleVacatedForfeit}
+                onDelete={handleVacatedDelete}
+              />
             ))}
           </>
         )}
