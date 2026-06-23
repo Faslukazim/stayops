@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { ArrowLeft, ArrowRightLeft, BedDouble, ChevronDown, Loader2, Plus, X } from 'lucide-react';
-import { fetchRoomsWithOccupants } from './services/propertyService';
+import { fetchRoomsWithOccupants, createRoom } from './services/propertyService';
 import { deleteTenant, moveTenant, updateTenant } from './services/tenantService';
 import { markTenantRecordPaid } from './services/paymentService';
 import { logActivity } from './services/activityService';
@@ -416,6 +416,60 @@ function RoomDetail({ room, rooms, selectedPropertyId, upiId, onClose, onAssign,
   );
 }
 
+// ─── Add room sheet ───────────────────────────────────────────────────────────
+
+function AddRoomSheet({ onSave, onCancel }) {
+  const [roomNumber, setRoomNumber] = useState('');
+  const [beds, setBeds] = useState('2');
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState('');
+  const inputCls = 'w-full rounded-lg border border-border bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink';
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!roomNumber.trim()) { setErr('Room number is required.'); return; }
+    const n = parseInt(beds, 10);
+    if (!n || n < 1 || n > 20) { setErr('Beds must be 1–20.'); return; }
+    setErr('');
+    setSaving(true);
+    try {
+      await onSave({ roomNumber: roomNumber.trim(), beds: n });
+    } catch (ex) {
+      setErr(ex.message);
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex flex-col justify-end sm:items-center sm:justify-center bg-ink/40 backdrop-blur-sm" onClick={e => e.target === e.currentTarget && onCancel()}>
+      <div className="w-full sm:max-w-sm bg-white rounded-t-2xl sm:rounded-2xl p-5 shadow-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-ink">Add Room</h3>
+          <button type="button" onClick={onCancel} className="text-slate2 hover:text-ink"><X className="h-5 w-5" /></button>
+        </div>
+        {err && <p className="mb-3 text-sm text-coral">{err}</p>}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <label className="block">
+            <Label>Room number</Label>
+            <input autoFocus value={roomNumber} onChange={e => setRoomNumber(e.target.value)} className={`mt-1.5 ${inputCls}`} placeholder="e.g. G1, 101, A2" />
+          </label>
+          <label className="block">
+            <Label>Number of beds</Label>
+            <input type="number" min="1" max="20" value={beds} onChange={e => setBeds(e.target.value)} className={`mt-1.5 ${inputCls}`} />
+          </label>
+          <div className="flex gap-2 pt-1">
+            <Btn variant="ghost" className="flex-1 justify-center" onClick={onCancel} {...{ type: 'button' }}>Cancel</Btn>
+            <Btn variant="primary" className="flex-1 justify-center" disabled={saving} {...{ type: 'submit' }}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              Add Room
+            </Btn>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ─── Rooms page ───────────────────────────────────────────────────────────────
 
 export default function RoomsPage({ selectedPropertyId, upiId, onAssignBed, onViewTenant }) {
@@ -423,6 +477,7 @@ export default function RoomsPage({ selectedPropertyId, upiId, onAssignBed, onVi
   const [loading, setLoading] = useState(true);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [error, setError] = useState('');
+  const [addingRoom, setAddingRoom] = useState(false);
 
   async function load() {
     if (!selectedPropertyId) return;
@@ -460,6 +515,12 @@ export default function RoomsPage({ selectedPropertyId, upiId, onAssignBed, onVi
     onAssignBed({ propertyId: selectedPropertyId, roomId: room.id, bedId: availableBed?.id ?? '' });
   }
 
+  async function handleAddRoom({ roomNumber, beds }) {
+    await createRoom(selectedPropertyId, { roomNumber, beds });
+    setAddingRoom(false);
+    await load();
+  }
+
   if (loading) return <PageLoader />;
 
   if (error) {
@@ -471,13 +532,19 @@ export default function RoomsPage({ selectedPropertyId, upiId, onAssignBed, onVi
   }
 
   const summaryStrip = (
-    <div className="mb-4">
+    <div className="mb-4 flex items-start gap-3">
+      <div className="flex-1">
       <StatStrip stats={[
         { label: 'Total rooms',     value: rooms.length,                          color: 'text-ink' },
         { label: 'Occupancy',       value: `${Math.round((stats.occupied / (stats.totalBeds || 1)) * 100)}%` },
         { label: 'Vacant beds',     value: stats.totalBeds - stats.occupied,      color: (stats.totalBeds - stats.occupied) > 0 ? 'text-amber' : 'text-leaf' },
         { label: 'Rooms Pending', value: stats.unpaidRooms,                     color: stats.unpaidRooms > 0 ? 'text-coral' : 'text-leaf' },
       ]} />
+      </div>
+      <Btn variant="ghost" className="shrink-0 mt-0.5" onClick={() => setAddingRoom(true)}>
+        <Plus className="h-4 w-4" />
+        Add Room
+      </Btn>
     </div>
   );
 
@@ -509,7 +576,7 @@ export default function RoomsPage({ selectedPropertyId, upiId, onAssignBed, onVi
       <div className="hidden sm:grid sm:grid-cols-[300px_1fr] lg:grid-cols-[340px_1fr] gap-4">
         <div className="flex flex-col gap-2 max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
           {rooms.length === 0 ? (
-            <Card><EmptyState icon={BedDouble} title="No rooms found" body="Add rooms to this property to get started." /></Card>
+            <Card><EmptyState icon={BedDouble} title="No rooms yet" body="Tap 'Add Room' above to set up your first room and beds." /></Card>
           ) : rooms.map(room => (
             <RoomCard
               key={room.id}
@@ -544,7 +611,9 @@ export default function RoomsPage({ selectedPropertyId, upiId, onAssignBed, onVi
 
       <div className="sm:hidden flex flex-col gap-2">
         {rooms.length === 0 ? (
-          <Card><EmptyState icon={BedDouble} title="No rooms found" body="Add rooms to this property to get started." /></Card>
+          <Card>
+            <EmptyState icon={BedDouble} title="No rooms yet" body="Tap 'Add Room' above to set up your first room and beds." />
+          </Card>
         ) : rooms.map(room => (
           <RoomCard
             key={room.id}
@@ -554,6 +623,13 @@ export default function RoomsPage({ selectedPropertyId, upiId, onAssignBed, onVi
           />
         ))}
       </div>
+
+      {addingRoom && (
+        <AddRoomSheet
+          onSave={handleAddRoom}
+          onCancel={() => setAddingRoom(false)}
+        />
+      )}
     </div>
   );
 }

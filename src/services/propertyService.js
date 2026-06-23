@@ -10,6 +10,25 @@ export async function fetchProperties() {
   return data;
 }
 
+export async function createRoom(propertyId, { roomNumber, beds }) {
+  const { data: room, error: roomErr } = await supabase
+    .from('rooms')
+    .insert({ property_id: propertyId, room_number: roomNumber, capacity: beds, status: 'active' })
+    .select()
+    .single();
+  if (roomErr) throw roomErr;
+
+  const bedRows = Array.from({ length: beds }, (_, i) => ({
+    room_id: room.id,
+    property_id: propertyId,
+    bed_number: String(i + 1),
+    status: 'available',
+  }));
+  const { error: bedErr } = await supabase.from('beds').insert(bedRows);
+  if (bedErr) throw bedErr;
+  return room;
+}
+
 export async function updatePropertyUpiId(propertyId, upiId) {
   const { error } = await supabase
     .from('properties')
