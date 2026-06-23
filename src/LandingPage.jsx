@@ -97,7 +97,7 @@ export default function LandingPage({ onShowAuth }) {
         <h2 className="text-xl font-bold mb-2">Ready to bring your PG online?</h2>
         <p className="text-white/60 text-sm mb-6">Contact us to get access for your property.</p>
         <a
-          href="https://wa.me/919747424217?text=Hi%2C%20I%27d%20like%20to%20get%20access%20to%20StayOps"
+          href="https://wa.me/919633310117?text=Hi%2C%20I%27d%20like%20to%20get%20access%20to%20StayOps"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 rounded-xl bg-leaf px-6 py-3 text-sm font-semibold text-white hover:bg-leaf/90 transition-colors"

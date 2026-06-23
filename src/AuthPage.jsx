@@ -129,7 +129,7 @@ export default function AuthPage({ onAuthed, onBack }) {
         <p className="mt-5 text-center text-sm text-slate2">
           Don't have access?{' '}
           <a
-            href="https://wa.me/919747424217?text=Hi%2C%20I%27d%20like%20to%20get%20access%20to%20StayOps"
+            href="https://wa.me/919633310117?text=Hi%2C%20I%27d%20like%20to%20get%20access%20to%20StayOps"
             target="_blank"
             rel="noopener noreferrer"
             className="font-semibold text-ink hover:underline"
