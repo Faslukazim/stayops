@@ -165,6 +165,77 @@ export default function LandingPage({ onShowAuth }) {
         </div>
       </section>
 
+      {/* ── Pricing ─────────────────────────────────────────────────────── */}
+      <section className="px-5 py-16 max-w-2xl mx-auto w-full">
+        <h2 className="text-center text-xl font-bold text-ink mb-2">Simple, honest pricing</h2>
+        <p className="text-center text-sm text-slate2 mb-10">No contracts. No setup fee. Cancel anytime.</p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+          {/* Starter */}
+          <div className="bg-white rounded-2xl border border-border p-6 flex flex-col">
+            <p className="text-xs font-bold text-slate2 tracking-widest uppercase mb-3">Starter</p>
+            <div className="flex items-end gap-1 mb-1">
+              <span className="text-3xl font-extrabold text-ink">₹799</span>
+              <span className="text-sm text-slate2 mb-1">/month</span>
+            </div>
+            <p className="text-xs text-slate2 mb-6">Up to 30 beds · 1 property</p>
+            <ul className="flex flex-col gap-2.5 mb-8 flex-1">
+              {['Rooms & bed management','Tenant records + ID photos','Rent tracking & reminders','Expense tracking','Monthly P&L'].map(f => (
+                <li key={f} className="flex items-center gap-2 text-sm text-ink">
+                  <CheckCircle2 className="h-4 w-4 text-leaf shrink-0" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              onClick={onShowAuth}
+              className="w-full inline-flex items-center justify-center rounded-xl border border-border bg-mist text-ink py-2.5 text-sm font-bold hover:bg-border transition-colors"
+            >
+              Get started
+            </button>
+          </div>
+
+          {/* Growth */}
+          <div className="bg-ink rounded-2xl p-6 flex flex-col relative overflow-hidden">
+            <div className="absolute top-4 right-4 rounded-full bg-leaf px-2.5 py-0.5 text-[10px] font-bold text-white tracking-wide uppercase">
+              Popular
+            </div>
+            <p className="text-xs font-bold text-white/50 tracking-widest uppercase mb-3">Growth</p>
+            <div className="flex items-end gap-1 mb-1">
+              <span className="text-3xl font-extrabold text-white">₹1,499</span>
+              <span className="text-sm text-white/50 mb-1">/month</span>
+            </div>
+            <p className="text-xs text-white/50 mb-6">Up to 100 beds · 3 properties</p>
+            <ul className="flex flex-col gap-2.5 mb-8 flex-1">
+              {['Everything in Starter','Multiple properties','Deposit management','Income records & day guests','Cashflow tracking'].map(f => (
+                <li key={f} className="flex items-center gap-2 text-sm text-white">
+                  <CheckCircle2 className="h-4 w-4 text-leaf shrink-0" />
+                  {f}
+                </li>
+              ))}
+            </ul>
+            <button
+              type="button"
+              onClick={onShowAuth}
+              className="w-full inline-flex items-center justify-center rounded-xl bg-white text-ink py-2.5 text-sm font-bold hover:bg-mist transition-colors"
+            >
+              Get started
+            </button>
+          </div>
+
+        </div>
+
+        <p className="text-center text-xs text-slate2 mt-6">
+          More than 100 beds?{' '}
+          <a href="mailto:hello@stayops.com" className="font-semibold text-ink hover:underline">
+            Talk to us
+          </a>{' '}
+          for a custom plan.
+        </p>
+      </section>
+
       {/* ── Final CTA ───────────────────────────────────────────────────── */}
       <section className="px-5 py-16 flex flex-col items-center text-center">
         <h2 className="text-2xl font-extrabold text-ink mb-2 tracking-tight">Ready to ditch the spreadsheet?</h2>
