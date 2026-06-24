@@ -188,11 +188,12 @@ begin
     (v_prop, v_org, 'internet',    'WiFi bill',                  499, v_month_start - 29);
 
   -- Cash flow (recurring obligations — shown in Cashflow tab, not P&L)
+  -- Valid types: building_rent | salary | emi | other
   insert into public.cash_flow_items (property_id, organization_id, label, amount, type, due_day)
   values
-    (v_prop, v_org, 'Building Rent',   25000, 'expense', 1),
-    (v_prop, v_org, 'Internet Bill',    1499, 'expense', 5),
-    (v_prop, v_org, 'Caretaker Wages',  8000, 'expense', 1);
+    (v_prop, v_org, 'Building Rent',   25000, 'building_rent', 1),
+    (v_prop, v_org, 'Internet Bill',    1499, 'other',         5),
+    (v_prop, v_org, 'Caretaker Wages',  8000, 'salary',        1);
 
   -- Extra income records
   insert into public.income_records (property_id, organization_id, type, category, amount, date, name, phone)
