@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 390 844">
+  <rect width="390" height="844" fill="#F7F7F5"/>
+  <!-- Header -->
+  <rect width="390" height="56" fill="#ffffff" stroke="#E2E8F0" stroke-width="1"/>
+  <text x="16" y="35" font-family="Inter,sans-serif" font-size="18" font-weight="700" fill="#0F1117">StayOps</text>
+  <rect x="290" y="14" width="84" height="28" rx="8" fill="#F7F7F5" stroke="#E2E8F0" stroke-width="1"/>
+  <text x="332" y="33" font-family="Inter,sans-serif" font-size="11" fill="#64748B" text-anchor="middle">Sample Hostel</text>
+  <!-- Nav tabs -->
+  <rect y="56" width="390" height="44" fill="#ffffff" stroke="#E2E8F0" stroke-width="1"/>
+  <text x="32" y="83" font-family="Inter,sans-serif" font-size="13" font-weight="700" fill="#0F1117">Overview</text>
+  <rect x="8" y="56" width="72" height="2" rx="1" fill="#0F1117"/>
+  <text x="130" y="83" font-family="Inter,sans-serif" font-size="13" fill="#64748B">Rooms</text>
+  <text x="210" y="83" font-family="Inter,sans-serif" font-size="13" fill="#64748B">Tenants</text>
+  <text x="290" y="83" font-family="Inter,sans-serif" font-size="13" fill="#64748B">Finance</text>
+  <!-- Stat strip -->
+  <rect x="16" y="116" width="358" height="80" rx="12" fill="#ffffff" stroke="#E2E8F0" stroke-width="1"/>
+  <line x1="106" y1="126" x2="106" y2="186" stroke="#E2E8F0" stroke-width="1"/>
+  <line x1="212" y1="126" x2="212" y2="186" stroke="#E2E8F0" stroke-width="1"/>
+  <line x1="300" y1="126" x2="300" y2="186" stroke="#E2E8F0" stroke-width="1"/>
+  <text x="24" y="146" font-family="Inter,sans-serif" font-size="9" font-weight="600" fill="#64748B" letter-spacing="1">OCCUPANCY</text>
+  <text x="24" y="168" font-family="Inter,sans-serif" font-size="20" font-weight="700" fill="#0F1117">11/12</text>
+  <text x="24" y="182" font-family="Inter,sans-serif" font-size="10" fill="#64748B">92% full</text>
+  <text x="118" y="146" font-family="Inter,sans-serif" font-size="9" font-weight="600" fill="#64748B" letter-spacing="1">COLLECTED</text>
+  <text x="118" y="168" font-family="Inter,sans-serif" font-size="20" font-weight="700" fill="#16A34A">₹71,500</text>
+  <text x="118" y="182" font-family="Inter,sans-serif" font-size="10" fill="#64748B">this month</text>
+  <text x="220" y="146" font-family="Inter,sans-serif" font-size="9" font-weight="600" fill="#64748B" letter-spacing="1">PENDING</text>
+  <text x="220" y="168" font-family="Inter,sans-serif" font-size="20" font-weight="700" fill="#E5484D">₹6,500</text>
+  <text x="220" y="182" font-family="Inter,sans-serif" font-size="10" fill="#64748B">3 unpaid</text>
+  <text x="308" y="146" font-family="Inter,sans-serif" font-size="9" font-weight="600" fill="#64748B" letter-spacing="1">VACANT</text>
+  <text x="308" y="168" font-family="Inter,sans-serif" font-size="20" font-weight="700" fill="#0F1117">1</text>
+  <text x="308" y="182" font-family="Inter,sans-serif" font-size="10" fill="#64748B">bed free</text>
+  <!-- Attention section -->
+  <text x="16" y="222" font-family="Inter,sans-serif" font-size="11" font-weight="700" fill="#E5484D" letter-spacing="0.5">NEEDS ATTENTION</text>
+  <!-- Attention card 1 -->
+  <rect x="16" y="232" width="358" height="64" rx="12" fill="#ffffff" stroke="#E2E8F0" stroke-width="1"/>
+  <rect x="16" y="232" width="4" height="64" rx="2" fill="#E5484D"/>
+  <text x="32" y="252" font-family="Inter,sans-serif" font-size="14" font-weight="600" fill="#0F1117">Rahul Sharma</text>
+  <text x="32" y="270" font-family="Inter,sans-serif" font-size="12" fill="#64748B">Room 02 · Bed 1 · ₹6,500</text>
+  <rect x="278" y="242" width="80" height="22" rx="6" fill="#E5484D"/>
+  <text x="318" y="257" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">Mark Paid</text>
+  <text x="32" y="287" font-family="Inter,sans-serif" font-size="10" fill="#E5484D">5 days overdue</text>
+  <!-- Attention card 2 -->
+  <rect x="16" y="308" width="358" height="64" rx="12" fill="#ffffff" stroke="#E2E8F0" stroke-width="1"/>
+  <rect x="16" y="308" width="4" height="64" rx="2" fill="#D97706"/>
+  <text x="32" y="328" font-family="Inter,sans-serif" font-size="14" font-weight="600" fill="#0F1117">Priya Menon</text>
+  <text x="32" y="346" font-family="Inter,sans-serif" font-size="12" fill="#64748B">Room 01 · Bed 2 · ₹7,000</text>
+  <rect x="278" y="318" width="80" height="22" rx="6" fill="#16A34A"/>
+  <text x="318" y="333" font-family="Inter,sans-serif" font-size="10" font-weight="700" fill="#ffffff" text-anchor="middle">Mark Paid</text>
+  <text x="32" y="363" font-family="Inter,sans-serif" font-size="10" fill="#D97706">Due today</text>
+  <!-- Pending deposits card -->
+  <text x="16" y="400" font-family="Inter,sans-serif" font-size="11" font-weight="700" fill="#64748B" letter-spacing="0.5">PENDING DEPOSITS</text>
+  <rect x="16" y="410" width="358" height="64" rx="12" fill="#ffffff" stroke="#E2E8F0" stroke-width="1"/>
+  <text x="32" y="432" font-family="Inter,sans-serif" font-size="14" font-weight="600" fill="#0F1117">Arun Kumar</text>
+  <text x="32" y="450" font-family="Inter,sans-serif" font-size="12" fill="#64748B">Deposit ₹6,500 · Vacated Jun 10</text>
+  <rect x="248" y="421" width="58" height="22" rx="6" fill="#ffffff" stroke="#D97706" stroke-width="1"/>
+  <text x="277" y="436" font-family="Inter,sans-serif" font-size="10" font-weight="600" fill="#D97706" text-anchor="middle">Return</text>
+  <rect x="314" y="421" width="44" height="22" rx="6" fill="#ffffff" stroke="#E5484D" stroke-width="1"/>
+  <text x="336" y="436" font-family="Inter,sans-serif" font-size="10" font-weight="600" fill="#E5484D" text-anchor="middle">Forfeit</text>
+  <!-- Bottom nav -->
+  <rect y="788" width="390" height="56" fill="#ffffff" stroke="#E2E8F0" stroke-width="1"/>
+  <text x="49" y="822" font-family="Inter,sans-serif" font-size="9" fill="#0F1117" text-anchor="middle" font-weight="600">Overview</text>
+  <text x="147" y="822" font-family="Inter,sans-serif" font-size="9" fill="#64748B" text-anchor="middle">Rooms</text>
+  <text x="245" y="822" font-family="Inter,sans-serif" font-size="9" fill="#64748B" text-anchor="middle">Tenants</text>
+  <text x="343" y="822" font-family="Inter,sans-serif" font-size="9" fill="#64748B" text-anchor="middle">Finance</text>
+</svg>

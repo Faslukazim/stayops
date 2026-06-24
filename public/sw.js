@@ -1,11 +1,12 @@
-const CACHE = 'stayops-v2';
+const CACHE = 'stayops-v3';
+const OFFLINE_URL = '/offline.html';
 
-// Cache static assets on install
+// Cache static assets + offline page on install
 self.addEventListener('install', e => {
   self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE).then(c =>
-      c.addAll(['/', '/manifest.json', '/favicon.png'])
+      c.addAll(['/', '/manifest.json', '/favicon.png', OFFLINE_URL])
     )
   );
 });
@@ -23,10 +24,18 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
 
-  // Skip non-GET and cross-origin API requests (Supabase)
   if (e.request.method !== 'GET') return;
   if (url.hostname !== self.location.hostname) return;
 
+  // For navigation requests: network first, fall back to offline page
+  if (e.request.mode === 'navigate') {
+    e.respondWith(
+      fetch(e.request).catch(() => caches.match(OFFLINE_URL))
+    );
+    return;
+  }
+
+  // For assets: cache first, update cache in background
   e.respondWith(
     caches.match(e.request).then(cached => {
       const network = fetch(e.request).then(res => {
