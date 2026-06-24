@@ -1693,11 +1693,25 @@ export default function App({ session, organizationName, onSignOut } = {}) {
     return () => clearTimeout(id);
   }, [enteringPage]);
 
+  const navHistory = useRef([page]);
+
   function navigateTo(newPage) {
+    if (newPage === page) return;
+    navHistory.current = [...navHistory.current, newPage];
     localStorage.setItem('stayops_page', newPage);
     setPage(newPage);
     setEnteringPage(newPage);
     setMountedPages(m => { const n = new Set(m); n.add(newPage); return n; });
+  }
+
+  function goBack() {
+    if (navHistory.current.length <= 1) return;
+    navHistory.current = navHistory.current.slice(0, -1);
+    const prev = navHistory.current[navHistory.current.length - 1];
+    localStorage.setItem('stayops_page', prev);
+    setPage(prev);
+    setEnteringPage(prev);
+    setMountedPages(m => { const n = new Set(m); n.add(prev); return n; });
   }
 
   const totalBeds = useMemo(() => {
@@ -1912,17 +1926,49 @@ export default function App({ session, organizationName, onSignOut } = {}) {
   const [refreshing, setRefreshing] = useState(false);
   const PULL_THRESHOLD = 64;
 
-  function onPullStart(e) {
-    if (window.scrollY > 0) return;
-    pullTouchY.current = e.touches[0].clientY;
+  // Swipe-back from left edge
+  const swipeBackRef = useRef(null); // { startX, startY }
+  const [swipeBackX, setSwipeBackX] = useState(0);
+  const SWIPE_EDGE = 32;
+  const SWIPE_THRESHOLD = 80;
+  const canGoBack = navHistory.current.length > 1;
+
+  function onTouchStart(e) {
+    const t = e.touches[0];
+    // Pull-to-refresh: downward drag from top when at scroll 0
+    if (window.scrollY === 0) pullTouchY.current = t.clientY;
+    // Swipe-back: starts within left-edge zone
+    if (t.clientX <= SWIPE_EDGE && canGoBack) {
+      swipeBackRef.current = { startX: t.clientX, startY: t.clientY };
+    }
   }
-  function onPullMove(e) {
+
+  function onTouchMove(e) {
+    const t = e.touches[0];
+    // Swipe-back takes priority if active
+    if (swipeBackRef.current) {
+      const dx = t.clientX - swipeBackRef.current.startX;
+      const dy = Math.abs(t.clientY - swipeBackRef.current.startY);
+      if (dy > 20 && dx < 20) { swipeBackRef.current = null; return; } // mostly vertical — cancel
+      if (dx > 0) { setSwipeBackX(Math.min(dx, SWIPE_THRESHOLD + 20)); return; }
+    }
+    // Pull-to-refresh
     if (pullTouchY.current === null) return;
-    const dy = e.touches[0].clientY - pullTouchY.current;
+    const dy = t.clientY - pullTouchY.current;
     if (dy < 0) { pullTouchY.current = null; return; }
     setPullY(Math.min(dy * 0.4, PULL_THRESHOLD));
   }
-  async function onPullEnd() {
+
+  async function onTouchEnd() {
+    // Swipe-back
+    if (swipeBackRef.current) {
+      if (swipeBackX >= SWIPE_THRESHOLD) goBack();
+      swipeBackRef.current = null;
+      setSwipeBackX(0);
+      return;
+    }
+    setSwipeBackX(0);
+    // Pull-to-refresh
     if (pullY >= PULL_THRESHOLD - 4 && !refreshing) {
       setRefreshing(true);
       setPullY(0);
@@ -1943,10 +1989,23 @@ export default function App({ session, organizationName, onSignOut } = {}) {
   return (
     <div
       className="min-h-screen bg-mist pb-14 sm:pb-0"
-      onTouchStart={onPullStart}
-      onTouchMove={onPullMove}
-      onTouchEnd={onPullEnd}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
     >
+      {/* Swipe-back affordance */}
+      {swipeBackX > 0 && (
+        <div
+          className="fixed inset-y-0 left-0 z-[150] flex items-center pointer-events-none"
+          style={{ transform: `translateX(${Math.min(swipeBackX - SWIPE_EDGE, SWIPE_THRESHOLD)}px)`, transition: 'none' }}
+        >
+          <div className={`ml-2 flex h-10 w-10 items-center justify-center rounded-full shadow-lift border border-border transition-colors ${swipeBackX >= SWIPE_THRESHOLD ? 'bg-ink text-white' : 'bg-white text-slate2'}`}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6"/>
+            </svg>
+          </div>
+        </div>
+      )}
       <Header
         properties={properties}
         selectedPropertyId={selectedPropertyId}
