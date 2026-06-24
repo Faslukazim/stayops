@@ -112,7 +112,9 @@ begin
       v_prop, v_ten, v_occ, v_ym, rec.rent, rec.due_day,
       case when rec.pay_status = 'Paid' then 'paid' else 'unpaid' end,
       case when rec.pay_status = 'Paid' then now() - interval '2 days' else null end
-    ) on conflict (occupancy_id, month) do nothing;
+    ) on conflict (occupancy_id, month) do update
+      set status  = excluded.status,
+          paid_at = excluded.paid_at;
 
     -- Previous month — all paid
     insert into public.payment_records (
