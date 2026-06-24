@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useToast } from './lib/toast.jsx';
 import {
   BarChart2, BedDouble, Camera, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight,
-  Home, Loader2, LogOut, MessageCircle, Pencil, Plus, Save, Sparkles, Trash2, UserMinus, UserPlus, Users, X,
+  Home, Loader2, LogOut, MessageCircle, Pencil, Plus, Save, ShieldCheck, Sparkles, Trash2, UserMinus, UserPlus, Users, X,
 } from 'lucide-react';
 import { createTenant, deleteTenant, vacateTenant, fetchTenants, fetchVacatedTenants, fetchPendingDeposits, fetchMovedOutThisMonth, forfeitDeposit, returnDeposit, updateTenant } from './services/tenantService';
 import { addIncomeRecord, uploadIdPhoto, saveTenantIdPhoto } from './services/incomeService';
@@ -61,7 +61,7 @@ function StayOpsLogo() {
   );
 }
 
-function Header({ properties, selectedPropertyId, onPropertyChange, loadingProperties, onSignOut }) {
+function Header({ properties, selectedPropertyId, onPropertyChange, loadingProperties, onSignOut, isAdmin, onOpenAdmin }) {
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-border px-4 py-3 sm:px-6" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}>
       <div className="mx-auto max-w-5xl">
@@ -74,6 +74,16 @@ function Header({ properties, selectedPropertyId, onPropertyChange, loadingPrope
               onChange={onPropertyChange}
               loading={loadingProperties}
             />
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={onOpenAdmin}
+                title="Admin panel"
+                className="inline-flex items-center justify-center rounded-lg bg-mist p-2 text-slate2 border border-border hover:bg-border hover:text-ink transition-colors"
+              >
+                <ShieldCheck className="h-4 w-4" />
+              </button>
+            )}
             {onSignOut && (
               <button
                 type="button"
@@ -1614,7 +1624,7 @@ function EmptyWorkspace({ onSeed, seeding }) {
 
 // ─── root ────────────────────────────────────────────────────────────────────
 
-export default function App({ session, organizationName, onSignOut } = {}) {
+export default function App({ session, organizationName, onSignOut, isAdmin, onOpenAdmin } = {}) {
   const [page, setPage] = useState(() => {
     const saved = localStorage.getItem('stayops_page');
     // 'payments' is now 'finance' — migrate old saved value
@@ -2012,6 +2022,8 @@ export default function App({ session, organizationName, onSignOut } = {}) {
         onPropertyChange={setSelectedPropertyId}
         loadingProperties={loadingProperties}
         onSignOut={onSignOut}
+        isAdmin={isAdmin}
+        onOpenAdmin={onOpenAdmin}
       />
       <TopNav active={page} onChange={navigateTo} bookingCount={pendingBookings.length} />
 

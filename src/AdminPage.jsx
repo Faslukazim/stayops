@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Loader2, CheckCircle2, Trash2, RefreshCw, LogOut } from 'lucide-react';
+import { Loader2, CheckCircle2, Trash2, RefreshCw, LogOut, LayoutDashboard } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { signOut } from './services/authService';
 
-export default function AdminPage({ onSignOut }) {
+export default function AdminPage({ onSignOut, onOpenApp }) {
   const [orgs, setOrgs]     = useState([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy]     = useState(null); // org_id being acted on
@@ -51,6 +51,10 @@ export default function AdminPage({ onSignOut }) {
         <div className="flex items-center gap-3">
           <button onClick={load} className="text-slate2 hover:text-ink transition-colors">
             <RefreshCw className="h-4 w-4" />
+          </button>
+          <button onClick={onOpenApp} className="flex items-center gap-1.5 text-xs font-semibold text-slate2 hover:text-ink transition-colors">
+            <LayoutDashboard className="h-3.5 w-3.5" />
+            My workspace
           </button>
           <button onClick={handleSignOut} className="flex items-center gap-1.5 text-xs font-semibold text-slate2 hover:text-ink transition-colors">
             <LogOut className="h-3.5 w-3.5" />

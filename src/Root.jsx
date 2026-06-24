@@ -24,6 +24,7 @@ export default function Root() {
   const [memberships, setMemberships] = useState(undefined);
   const [membershipError, setMembershipError] = useState('');
   const [showAuth, setShowAuth] = useState(false);
+  const [adminMode, setAdminMode] = useState(true);
 
   const loadMemberships = useCallback(async () => {
     setMembershipError('');
@@ -88,8 +89,8 @@ export default function Root() {
   }
 
   // ── Admin ──────────────────────────────────────────────────────────────────
-  if (session.user?.id === ADMIN_UID) {
-    return <AdminPage onSignOut={signOut} />;
+  if (session.user?.id === ADMIN_UID && adminMode) {
+    return <AdminPage onSignOut={signOut} onOpenApp={() => setAdminMode(false)} />;
   }
 
   const activeOrg = memberships[0];
@@ -111,6 +112,8 @@ export default function Root() {
       organizationName={activeOrg?.name}
       membershipError={membershipError}
       onSignOut={signOut}
+      isAdmin={session.user?.id === ADMIN_UID}
+      onOpenAdmin={() => setAdminMode(true)}
     />
   );
 }
