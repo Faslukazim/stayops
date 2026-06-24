@@ -432,23 +432,32 @@ function RoomDetail({ room, rooms, selectedPropertyId, organizationId, upiId, on
   async function handleConfirmPaid(amountCollected, deductionReason) {
     const { tenantId, name } = collectingBed;
     setCollectingBed(null);
-    const currentYM = new Date().toISOString().slice(0, 7);
-    await updateTenant(tenantId, { paymentStatus: 'Paid', paymentDate: new Date().toISOString().slice(0, 10) });
-    markTenantRecordPaid(tenantId, currentYM, amountCollected, deductionReason).catch(console.error);
-    logActivity(selectedPropertyId, 'payment_paid', `${name} marked paid — Room ${room.room_number}`);
-    onRoomUpdate();
+    try {
+      const currentYM = new Date().toISOString().slice(0, 7);
+      await updateTenant(tenantId, { paymentStatus: 'Paid', paymentDate: new Date().toISOString().slice(0, 10) });
+      markTenantRecordPaid(tenantId, currentYM, amountCollected, deductionReason).catch(console.error);
+      logActivity(selectedPropertyId, 'payment_paid', `${name} marked paid — Room ${room.room_number}`);
+      toast.success(`${name} marked paid`);
+      onRoomUpdate();
+    } catch (e) { toast.error(e.message); }
   }
 
   async function handleMarkUnpaid(tenantId) {
     const bed = room.beds.find(b => b.tenant?.id === tenantId);
-    await updateTenant(tenantId, { paymentStatus: 'Unpaid', paymentDate: '' });
-    logActivity(selectedPropertyId, 'payment_unpaid', `${bed?.tenant?.name ?? 'Tenant'} marked unpaid — Room ${room.room_number}`);
-    onRoomUpdate();
+    try {
+      await updateTenant(tenantId, { paymentStatus: 'Unpaid', paymentDate: '' });
+      logActivity(selectedPropertyId, 'payment_unpaid', `${bed?.tenant?.name ?? 'Tenant'} marked unpaid — Room ${room.room_number}`);
+      toast.info(`${bed?.tenant?.name ?? 'Tenant'} marked unpaid`);
+      onRoomUpdate();
+    } catch (e) { toast.error(e.message); }
   }
 
   async function handleDeleteBed(bedId) {
-    await deleteBed(bedId);
-    onRoomUpdate();
+    try {
+      await deleteBed(bedId);
+      toast.success('Bed removed');
+      onRoomUpdate();
+    } catch (e) { toast.error(e.message); }
   }
 
   async function handleBook(bed, { name, phone, advanceAmount, expectedJoinDate }) {
@@ -473,9 +482,12 @@ function RoomDetail({ room, rooms, selectedPropertyId, organizationId, upiId, on
 
   async function handleVacate(tenantId) {
     const bed = room.beds.find(b => b.tenant?.id === tenantId);
-    await deleteTenant(tenantId);
-    logActivity(selectedPropertyId, 'tenant_vacated', `${bed?.tenant?.name ?? 'Tenant'} vacated Room ${room.room_number} Bed ${bed?.bed_number ?? ''}`);
-    onRoomUpdate();
+    try {
+      await deleteTenant(tenantId);
+      logActivity(selectedPropertyId, 'tenant_vacated', `${bed?.tenant?.name ?? 'Tenant'} vacated Room ${room.room_number} Bed ${bed?.bed_number ?? ''}`);
+      toast.success(`${bed?.tenant?.name ?? 'Tenant'} vacated`);
+      onRoomUpdate();
+    } catch (e) { toast.error(e.message); }
   }
 
   async function handleMove(tenantId, destRoomId, destBedId, destRoomNumber, fromBedNumber) {
@@ -657,6 +669,7 @@ function AddRoomSheet({ onSave, onCancel }) {
 // ─── Rooms page ───────────────────────────────────────────────────────────────
 
 export default function RoomsPage({ selectedPropertyId, organizationId, upiId, onAssignBed, onViewTenant, onConvertBooking }) {
+  const toast = useToast();
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedRoom, setSelectedRoom] = useState(null);
@@ -700,15 +713,21 @@ export default function RoomsPage({ selectedPropertyId, organizationId, upiId, o
   }
 
   async function handleAddRoom({ roomNumber, beds }) {
-    await createRoom(selectedPropertyId, { roomNumber, beds });
-    setAddingRoom(false);
-    await load();
+    try {
+      await createRoom(selectedPropertyId, { roomNumber, beds });
+      setAddingRoom(false);
+      toast.success(`Room ${roomNumber} added`);
+      await load();
+    } catch (e) { toast.error(e.message); }
   }
 
   async function handleDeleteRoom(roomId) {
-    await deleteRoom(roomId);
-    setSelectedRoom(null);
-    await load();
+    try {
+      await deleteRoom(roomId);
+      setSelectedRoom(null);
+      toast.success('Room deleted');
+      await load();
+    } catch (e) { toast.error(e.message); }
   }
 
   if (loading) return <PageLoader />;

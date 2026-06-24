@@ -1611,7 +1611,8 @@ export default function App({ session, organizationName, onSignOut } = {}) {
       await updatePropertyUpiId(selectedPropertyId, newUpiId);
       setUpiId(newUpiId);
       setProperties(cur => cur.map(p => p.id === selectedPropertyId ? { ...p, upi_id: newUpiId || null } : p));
-    } catch (e) { setError(e.message); }
+      toast.success('UPI ID saved');
+    } catch (e) { toast.error(e.message); }
   }
 
   async function handleAdd(tenant) {
@@ -1635,26 +1636,28 @@ export default function App({ session, organizationName, onSignOut } = {}) {
   }
 
   async function handleAddDayGuestRecord({ name, phone, daily_rate, days, date, photoFile }) {
-    const orgId = properties.find(p => p.id === selectedPropertyId)?.organization_id;
-    if (!orgId) throw new Error('No property selected');
-    const amount = Number(daily_rate) * Number(days);
-    let photoPath = null;
-    if (photoFile) {
-      const tempId = crypto.randomUUID();
-      const { path } = await uploadIdPhoto(orgId, tempId, photoFile);
-      photoPath = path;
-    }
-    await addIncomeRecord(selectedPropertyId, orgId, {
-      type: 'day_guest',
-      amount,
-      daily_rate: Number(daily_rate),
-      days: Number(days),
-      name,
-      phone: phone || null,
-      date,
-      id_photo_url: photoPath,
-    });
-    toast.success(`Day guest ${name} recorded`);
+    try {
+      const orgId = properties.find(p => p.id === selectedPropertyId)?.organization_id;
+      if (!orgId) throw new Error('No property selected');
+      const amount = Number(daily_rate) * Number(days);
+      let photoPath = null;
+      if (photoFile) {
+        const tempId = crypto.randomUUID();
+        const { path } = await uploadIdPhoto(orgId, tempId, photoFile);
+        photoPath = path;
+      }
+      await addIncomeRecord(selectedPropertyId, orgId, {
+        type: 'day_guest',
+        amount,
+        daily_rate: Number(daily_rate),
+        days: Number(days),
+        name,
+        phone: phone || null,
+        date,
+        id_photo_url: photoPath,
+      });
+      toast.success(`Day guest ${name} recorded`);
+    } catch (e) { toast.error(e.message); }
   }
 
   async function handleUpdate(tenant) {
@@ -1677,7 +1680,7 @@ export default function App({ session, organizationName, onSignOut } = {}) {
   }
 
   async function handleConvertBooking(booking) {
-    await convertBooking(booking.id);
+    try { await convertBooking(booking.id); } catch (e) { toast.error(e.message); return; }
     // Pre-fill the add-tenant form. Use roomPrefill (no initialTenant) so
     // TenantForm enters "new tenant" mode with name/phone as separate state.
     setRoomPrefill({
@@ -1740,6 +1743,8 @@ export default function App({ session, organizationName, onSignOut } = {}) {
         setFlashPaidId(tenant.id);
         flashPaidTimer.current = setTimeout(() => setFlashPaidId(null), 1200);
         toast.success(`${tenant.name} marked paid`);
+      } else {
+        toast.info(`${tenant.name} marked unpaid`);
       }
       const orgId = properties.find(p=>p.id===selectedPropertyId)?.organization_id;
       logActivity(selectedPropertyId, orgId, status === 'Paid' ? 'payment_paid' : 'payment_unpaid',
