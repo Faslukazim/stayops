@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { Loader2, ArrowRight, LogOut, CheckCircle2 } from 'lucide-react';
+import { Loader2, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { createOrganization, signOut } from './services/authService';
+import { SignOutBtn } from './components/ui';
 
 export default function OnboardingPage({ email, onCreated, onSignOut }) {
   const [step, setStep] = useState(1); // 1 = business name, 2 = first property
@@ -50,14 +51,7 @@ export default function OnboardingPage({ email, onCreated, onSignOut }) {
           <img src="/favicon.png" alt="StayOps" width="28" height="28" className="rounded-lg" />
           <span className="text-sm font-bold text-ink tracking-tight">StayOps</span>
         </div>
-        <button
-          type="button"
-          onClick={handleSignOut}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate2 hover:text-ink transition-colors"
-        >
-          <LogOut className="h-3.5 w-3.5" />
-          Sign out
-        </button>
+        <SignOutBtn onSignOut={handleSignOut} />
       </div>
 
       {/* Progress dots */}

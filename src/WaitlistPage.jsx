@@ -1,4 +1,5 @@
-import { Clock, LogOut } from 'lucide-react';
+import { Clock } from 'lucide-react';
+import { SignOutBtn } from './components/ui';
 
 export default function WaitlistPage({ email, onSignOut }) {
   return (
@@ -23,14 +24,7 @@ export default function WaitlistPage({ email, onSignOut }) {
         Message us on WhatsApp to speed it up
       </a>
 
-      <button
-        type="button"
-        onClick={onSignOut}
-        className="mt-6 inline-flex items-center gap-1.5 text-sm text-slate2 hover:text-ink transition-colors"
-      >
-        <LogOut className="h-3.5 w-3.5" />
-        Sign out
-      </button>
+      <div className="mt-6"><SignOutBtn onSignOut={onSignOut} /></div>
     </div>
   );
 }

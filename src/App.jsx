@@ -21,7 +21,7 @@ import {
   fmt, Label, Card, SectionHeader, Btn, IconBtn,
   StatusBadge, WhatsAppLink,
   PageLoader, StatStrip, ConfirmInline, EmptyState, CollectModal,
-  MoneyInput, normalizePhone, isValidPhone,
+  MoneyInput, normalizePhone, isValidPhone, SignOutBtn,
 } from './components/ui';
 
 
@@ -84,16 +84,7 @@ function Header({ properties, selectedPropertyId, onPropertyChange, loadingPrope
                 <ShieldCheck className="h-4 w-4" />
               </button>
             )}
-            {onSignOut && (
-              <button
-                type="button"
-                onClick={onSignOut}
-                title="Sign out"
-                className="inline-flex items-center justify-center rounded-lg bg-mist p-2 text-slate2 border border-border hover:bg-border hover:text-ink transition-colors"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
-            )}
+            {onSignOut && <SignOutBtn onSignOut={onSignOut} />}
           </div>
         </div>
       </div>

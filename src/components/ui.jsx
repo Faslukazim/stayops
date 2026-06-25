@@ -2,8 +2,60 @@
 // Single source of truth for all reusable UI elements.
 // Import from here, never redefine inline.
 
-import { useState } from 'react';
-import { Loader2, MessageCircle, CheckCircle2, ChevronDown } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Loader2, MessageCircle, CheckCircle2, ChevronDown, LogOut } from 'lucide-react';
+
+// ─── SignOutBtn ───────────────────────────────────────────────────────────────
+// Two-tap sign out: first tap shows "Sure?", second confirms.
+// Reset back to idle if user clicks away.
+
+export function SignOutBtn({ onSignOut, className = '' }) {
+  const [confirm, setConfirm] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!confirm) return;
+    function handleClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setConfirm(false);
+    }
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('touchstart', handleClick);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('touchstart', handleClick);
+    };
+  }, [confirm]);
+
+  if (confirm) {
+    return (
+      <div ref={ref} className="flex items-center gap-1.5">
+        <span className="text-xs font-semibold text-ink">Sign out?</span>
+        <button
+          onClick={onSignOut}
+          className="rounded-lg bg-coral text-white px-2.5 py-1 text-xs font-bold hover:bg-coral/90 transition-colors"
+        >
+          Yes
+        </button>
+        <button
+          onClick={() => setConfirm(false)}
+          className="rounded-lg bg-mist border border-border px-2.5 py-1 text-xs font-semibold text-slate2 hover:text-ink transition-colors"
+        >
+          No
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setConfirm(true)}
+      className={`flex items-center gap-1.5 text-xs font-semibold text-slate2 hover:text-ink transition-colors ${className}`}
+    >
+      <LogOut className="h-3.5 w-3.5" />
+      Sign out
+    </button>
+  );
+}
 
 // ─── fmt ─────────────────────────────────────────────────────────────────────
 

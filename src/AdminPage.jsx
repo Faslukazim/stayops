@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
-  Loader2, CheckCircle2, Trash2, RefreshCw, LogOut, LayoutDashboard,
+  Loader2, CheckCircle2, Trash2, RefreshCw, LayoutDashboard,
   Plus, X, Eye, EyeOff, Copy, Check, ChevronDown, ChevronUp,
   Ban, ShieldCheck, KeyRound, Building2, Users, BedDouble, Clock,
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
-import { signOut } from './services/authService';
+import { SignOutBtn } from './components/ui';
 
 const CREATE_URL  = 'https://drlkmfhpthhkvnljuprm.supabase.co/functions/v1/admin-create-user';
 const RESET_URL   = 'https://drlkmfhpthhkvnljuprm.supabase.co/functions/v1/admin-reset-password';
@@ -285,9 +285,7 @@ export default function AdminPage({ onSignOut, onOpenApp }) {
           <button onClick={onOpenApp} className="flex items-center gap-1.5 text-xs font-semibold text-slate2 hover:text-ink transition-colors">
             <LayoutDashboard className="h-3.5 w-3.5" /> My workspace
           </button>
-          <button onClick={async () => { await signOut(); onSignOut?.(); }} className="flex items-center gap-1.5 text-xs font-semibold text-slate2 hover:text-ink transition-colors">
-            <LogOut className="h-3.5 w-3.5" /> Sign out
-          </button>
+          <SignOutBtn onSignOut={onSignOut} />
         </div>
       </header>
 
