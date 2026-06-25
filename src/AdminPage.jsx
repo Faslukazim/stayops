@@ -32,6 +32,12 @@ async function getToken() {
   return session?.access_token;
 }
 
+function toMsg(err) {
+  if (!err) return 'Something went wrong';
+  if (typeof err === 'string') return err;
+  return err.message || err.details || err.hint || JSON.stringify(err);
+}
+
 // ── CopyField ────────────────────────────────────────────────────────────────
 
 function CopyField({ label, value, mono = false }) {
@@ -76,11 +82,11 @@ function CredentialsPanel({ orgId, email: initEmail, password: initPassword, onC
       const { error: err } = await supabase
         .from('admin_credentials')
         .upsert({ org_id: orgId, email: email.trim(), password, updated_at: new Date().toISOString() });
-      if (err) throw err;
+      if (err) throw new Error(toMsg(err));
       setSaved(true);
       onSaved?.(email.trim(), password);
     } catch (err) {
-      setError(err.message);
+      setError(toMsg(err));
     } finally {
       setBusy(false);
     }
@@ -178,14 +184,15 @@ function PasswordResetPanel({ userId, orgId, onClose, onPasswordSaved }) {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ user_id: userId, org_id: orgId, new_password: password }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Failed');
+      let json = {};
+      try { json = await res.json(); } catch (_) { /* non-JSON response */ }
+      if (!res.ok) throw new Error(json.error || `Server error ${res.status}`);
       setSavedPass(password);
       setPassword('');
       setDone(true);
       onPasswordSaved?.(password);
     } catch (err) {
-      setError(err.message);
+      setError(toMsg(err));
     } finally {
       setBusy(false);
     }
@@ -483,11 +490,12 @@ function CreateAccountForm({ onCreated, onClose }) {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ email: email.trim(), password, org_name: orgName.trim(), property_name: propName.trim() || null }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Failed to create account');
+      let json = {};
+      try { json = await res.json(); } catch (_) { /* non-JSON response */ }
+      if (!res.ok) throw new Error(json.error || `Server error ${res.status}`);
       onCreated({ email: email.trim(), password, orgName: orgName.trim() });
     } catch (err) {
-      setError(err.message);
+      setError(toMsg(err));
     } finally {
       setBusy(false);
     }
