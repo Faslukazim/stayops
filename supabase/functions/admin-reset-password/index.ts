@@ -4,7 +4,11 @@ const ADMIN_UID = '06d41f5f-07c6-4922-9456-3e935eef72e7';
 
 function getUidFromToken(token: string): string | null {
   try {
-    return JSON.parse(atob(token.split('.')[1])).sub ?? null;
+    const part = token.split('.')[1];
+    // JWT uses base64url — convert to standard base64 before atob
+    const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+    return JSON.parse(atob(padded)).sub ?? null;
   } catch {
     return null;
   }
@@ -19,7 +23,6 @@ Deno.serve(async (req: Request) => {
 
   try {
     const token = req.headers.get('Authorization')?.replace('Bearer ', '') ?? '';
-    // verify_jwt: true already validated the signature — just check the sub
     if (getUidFromToken(token) !== ADMIN_UID) {
       return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 403, headers: corsHeaders });
     }
