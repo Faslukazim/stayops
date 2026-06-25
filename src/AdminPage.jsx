@@ -123,7 +123,8 @@ function CredentialsPanel({ orgId, email: initEmail, password: initPassword, onC
             </div>
           )}
           <input
-            type="email"
+            type="text"
+            inputMode="email"
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder="Login email"
@@ -269,10 +270,18 @@ function OrgCard({ org, onApprove, onReject, onBan, busy }) {
   }
 
   function toggleSection(section) {
-    if (section === 'reset')  { closeActions(); setShowReset(v => !v); }
-    if (section === 'creds')  { closeActions(); setShowCreds(v => !v); }
-    if (section === 'ban')    { closeActions(); setBanConfirm(v => !v); }
-    if (section === 'delete') { closeActions(); setDeleteConfirm(v => !v); }
+    // Capture current open state BEFORE closeActions resets everything
+    const isOpen = (section === 'reset' && showReset)
+                || (section === 'creds' && showCreds)
+                || (section === 'ban'   && banConfirm)
+                || (section === 'delete' && deleteConfirm);
+    closeActions();
+    if (!isOpen) {
+      if (section === 'reset')  setShowReset(true);
+      if (section === 'creds')  setShowCreds(true);
+      if (section === 'ban')    setBanConfirm(true);
+      if (section === 'delete') setDeleteConfirm(true);
+    }
   }
 
   return (
@@ -326,7 +335,7 @@ function OrgCard({ org, onApprove, onReject, onBan, busy }) {
       {/* ── Pending actions ── */}
       {isPending && (
         <div className="border-t border-amber/20 px-4 py-3 flex items-center gap-2 bg-white/60">
-          <button onClick={() => onReject(org.org_id, org.org_name)} disabled={isBusy}
+          <button onClick={() => onReject(org.org_id, org.org_name, true)} disabled={isBusy}
             className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-1.5 text-xs font-semibold text-slate2 hover:border-coral hover:text-coral transition-colors disabled:opacity-40">
             {isBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
             Reject
@@ -438,7 +447,7 @@ function OrgCard({ org, onApprove, onReject, onBan, busy }) {
             )}
 
             {/* Joined date footer */}
-            {!showReset && !banConfirm && !deleteConfirm && (
+            {!showCreds && !showReset && !banConfirm && !deleteConfirm && (
               <p className="text-xs text-slate2">
                 Joined {new Date(org.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
