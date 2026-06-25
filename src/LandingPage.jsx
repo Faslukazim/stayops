@@ -52,7 +52,7 @@ export default function LandingPage({ onShowAuth }) {
       {/* ── Nav ─────────────────────────────────────────────────────────── */}
       <header
         className="bg-white/90 backdrop-blur border-b border-border px-5 flex items-center justify-between sticky top-0 z-40"
-        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)', paddingBottom: '0.75rem' }}
+        style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)', paddingBottom: '1rem' }}
       >
         <div className="flex items-center gap-2.5">
           <img src="/favicon.png" alt="StayOps" width="32" height="32" className="rounded-lg" />

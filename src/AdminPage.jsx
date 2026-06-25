@@ -101,7 +101,7 @@ export default function AdminPage({ onSignOut, onOpenApp }) {
   return (
     <div className="min-h-screen bg-mist">
       {/* Header */}
-      <header className="bg-white border-b border-border px-5 py-4 flex items-center justify-between sticky top-0 z-40">
+      <header className="bg-white border-b border-border px-5 flex items-center justify-between sticky top-0 z-40" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)', paddingBottom: '1rem' }}>
         <div className="flex items-center gap-2.5">
           <img src="/favicon.png" alt="StayOps" width="28" height="28" className="rounded-lg" />
           <span className="text-sm font-bold text-ink">Admin</span>
