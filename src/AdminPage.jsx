@@ -20,10 +20,10 @@ function genPassword() {
 function timeAgo(ts) {
   if (!ts) return 'Never logged in';
   const s = Math.floor((Date.now() - new Date(ts)) / 1000);
-  if (s < 60)       return 'Just now';
-  if (s < 3600)     return `${Math.floor(s / 60)}m ago`;
-  if (s < 86400)    return `${Math.floor(s / 3600)}h ago`;
-  if (s < 2592000)  return `${Math.floor(s / 86400)}d ago`;
+  if (s < 60)      return 'Just now';
+  if (s < 3600)    return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400)   return `${Math.floor(s / 3600)}h ago`;
+  if (s < 2592000) return `${Math.floor(s / 86400)}d ago`;
   return new Date(ts).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
@@ -36,6 +36,36 @@ function toMsg(err) {
   if (!err) return 'Something went wrong';
   if (typeof err === 'string') return err;
   return err.message || err.details || err.hint || JSON.stringify(err);
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+
+function ToastItem({ toast, onDone }) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 3000);
+    return () => clearTimeout(t);
+  }, [onDone]);
+  return (
+    <div className={`flex items-center gap-2.5 rounded-2xl px-4 py-3 shadow-lg text-sm font-semibold text-white transition-all ${
+      toast.type === 'error' ? 'bg-coral' : 'bg-leaf'
+    }`}>
+      {toast.type === 'error'
+        ? <AlertCircle className="h-4 w-4 shrink-0" />
+        : <CheckCircle2 className="h-4 w-4 shrink-0" />}
+      {toast.message}
+    </div>
+  );
+}
+
+function ToastStack({ toasts, onDismiss }) {
+  if (!toasts.length) return null;
+  return (
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 items-center pointer-events-none">
+      {toasts.map(t => (
+        <ToastItem key={t.id} toast={t} onDone={() => onDismiss(t.id)} />
+      ))}
+    </div>
+  );
 }
 
 // ── CopyField ────────────────────────────────────────────────────────────────
@@ -61,17 +91,16 @@ function CopyField({ label, value, mono = false }) {
 }
 
 // ── CredentialsPanel ─────────────────────────────────────────────────────────
-// Shows saved credentials, or a form to save them for the first time.
 
-function CredentialsPanel({ orgId, email: initEmail, password: initPassword, onClose, onSaved }) {
+function CredentialsPanel({ userId, email: initEmail, password: initPassword, onClose, onSaved, onToast }) {
   const hasSaved = !!(initEmail && initPassword);
-  const [email, setEmail]     = useState(initEmail ?? '');
+  const [email, setEmail]       = useState(initEmail ?? '');
   const [password, setPassword] = useState(initPassword ?? '');
-  const [show, setShow]       = useState(false);
-  const [busy, setBusy]       = useState(false);
-  const [error, setError]     = useState('');
-  const [copied, setCopied]   = useState(false);
-  const [saved, setSaved]     = useState(hasSaved);
+  const [show, setShow]         = useState(false);
+  const [busy, setBusy]         = useState(false);
+  const [error, setError]       = useState('');
+  const [copied, setCopied]     = useState(false);
+  const [saved, setSaved]       = useState(hasSaved);
 
   async function handleSave(e) {
     e.preventDefault();
@@ -81,10 +110,11 @@ function CredentialsPanel({ orgId, email: initEmail, password: initPassword, onC
     try {
       const { error: err } = await supabase
         .from('admin_credentials')
-        .upsert({ org_id: orgId, email: email.trim(), password, updated_at: new Date().toISOString() });
+        .upsert({ user_id: userId, email: email.trim(), password, updated_at: new Date().toISOString() });
       if (err) throw new Error(toMsg(err));
       setSaved(true);
       onSaved?.(email.trim(), password);
+      onToast?.({ message: 'Credentials saved', type: 'success' });
     } catch (err) {
       setError(toMsg(err));
     } finally {
@@ -121,7 +151,7 @@ function CredentialsPanel({ orgId, email: initEmail, password: initPassword, onC
         </>
       ) : (
         <form onSubmit={handleSave} className="flex flex-col gap-3">
-          <p className="text-xs text-slate2">Enter the current credentials you remember — they'll be saved for future reference.</p>
+          <p className="text-xs text-slate2">Enter the current credentials you remember — saved for future reference.</p>
           {error && (
             <div className="flex items-center gap-2 rounded-lg bg-coral/5 border border-coral/20 px-3 py-2">
               <AlertCircle className="h-3.5 w-3.5 text-coral shrink-0" />
@@ -160,16 +190,12 @@ function CredentialsPanel({ orgId, email: initEmail, password: initPassword, onC
 }
 
 // ── PasswordResetPanel ────────────────────────────────────────────────────────
-// Only sends the reset when the user explicitly clicks "Set password".
-// The new password field starts empty.
 
-function PasswordResetPanel({ userId, orgId, onClose, onPasswordSaved }) {
+function PasswordResetPanel({ userId, ownerEmail, onClose, onPasswordSaved, onToast }) {
   const [password, setPassword] = useState('');
   const [show, setShow]         = useState(false);
   const [busy, setBusy]         = useState(false);
-  const [done, setDone]         = useState(false);
   const [error, setError]       = useState('');
-  const [savedPass, setSavedPass] = useState('');
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -182,35 +208,19 @@ function PasswordResetPanel({ userId, orgId, onClose, onPasswordSaved }) {
       const res = await fetch(RESET_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ user_id: userId, org_id: orgId, new_password: password }),
+        body: JSON.stringify({ user_id: userId, new_password: password }),
       });
       let json = {};
-      try { json = await res.json(); } catch (_) { /* non-JSON response */ }
+      try { json = await res.json(); } catch (_) {}
       if (!res.ok) throw new Error(json.error || `Server error ${res.status}`);
-      setSavedPass(password);
-      setPassword('');
-      setDone(true);
       onPasswordSaved?.(password);
+      onToast?.({ message: `Password updated for ${ownerEmail}`, type: 'success' });
+      onClose();
     } catch (err) {
       setError(toMsg(err));
     } finally {
       setBusy(false);
     }
-  }
-
-  if (done) {
-    return (
-      <div className="rounded-xl border border-leaf/20 bg-leaf/5 p-4 flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-leaf" />
-            <p className="text-sm font-semibold text-ink">Password updated</p>
-          </div>
-          <button onClick={onClose} className="text-slate2 hover:text-ink"><X className="h-4 w-4" /></button>
-        </div>
-        <CopyField label="New password" value={savedPass} mono />
-      </div>
-    );
   }
 
   return (
@@ -257,7 +267,7 @@ function PasswordResetPanel({ userId, orgId, onClose, onPasswordSaved }) {
 
 // ── OrgCard ───────────────────────────────────────────────────────────────────
 
-function OrgCard({ org, onApprove, onReject, onBan, busy }) {
+function OrgCard({ org, onApprove, onReject, onBan, busy, onToast }) {
   const [open, setOpen]             = useState(false);
   const [showReset, setShowReset]   = useState(false);
   const [showCreds, setShowCreds]   = useState(false);
@@ -277,10 +287,9 @@ function OrgCard({ org, onApprove, onReject, onBan, busy }) {
   }
 
   function toggleSection(section) {
-    // Capture current open state BEFORE closeActions resets everything
-    const isOpen = (section === 'reset' && showReset)
-                || (section === 'creds' && showCreds)
-                || (section === 'ban'   && banConfirm)
+    const isOpen = (section === 'reset'  && showReset)
+                || (section === 'creds'  && showCreds)
+                || (section === 'ban'    && banConfirm)
                 || (section === 'delete' && deleteConfirm);
     closeActions();
     if (!isOpen) {
@@ -295,25 +304,21 @@ function OrgCard({ org, onApprove, onReject, onBan, busy }) {
     <div className={`rounded-2xl border overflow-hidden transition-colors ${
       org.banned ? 'border-coral/30 bg-coral/5' : isPending ? 'border-amber/30 bg-amber/5' : 'border-border bg-white'
     }`}>
-      {/* ── Card header ── */}
+      {/* Header */}
       <div className="px-4 py-4 flex items-start gap-3">
-        {/* Avatar */}
         <div className={`h-9 w-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ${
           org.banned ? 'bg-coral/15 text-coral' : isPending ? 'bg-amber/15 text-amber' : 'bg-ink/8 text-ink'
         }`}>
           {org.org_name.charAt(0).toUpperCase()}
         </div>
 
-        {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-bold text-ink">{org.org_name}</p>
-            {org.banned   && <span className="text-[10px] font-bold text-coral  bg-coral/10  rounded-full px-2 py-0.5">Suspended</span>}
-            {isPending    && <span className="text-[10px] font-bold text-amber  bg-amber/10  rounded-full px-2 py-0.5">Pending</span>}
+            {org.banned  && <span className="text-[10px] font-bold text-coral bg-coral/10 rounded-full px-2 py-0.5">Suspended</span>}
+            {isPending   && <span className="text-[10px] font-bold text-amber bg-amber/10 rounded-full px-2 py-0.5">Pending</span>}
           </div>
           <p className="text-xs text-slate2 mt-0.5 truncate">{org.owner_email}</p>
-
-          {/* Stats row */}
           <div className="flex items-center gap-3 mt-2 flex-wrap">
             <span className="inline-flex items-center gap-1 text-xs text-slate2">
               <Building2 className="h-3 w-3" />{org.property_count} {org.property_count === 1 ? 'property' : 'properties'}
@@ -330,7 +335,6 @@ function OrgCard({ org, onApprove, onReject, onBan, busy }) {
           </div>
         </div>
 
-        {/* Expand toggle (approved only) */}
         {!isPending && (
           <button onClick={() => { setOpen(v => !v); closeActions(); }}
             className="text-slate2 hover:text-ink transition-colors mt-0.5 shrink-0">
@@ -339,7 +343,7 @@ function OrgCard({ org, onApprove, onReject, onBan, busy }) {
         )}
       </div>
 
-      {/* ── Pending actions ── */}
+      {/* Pending actions */}
       {isPending && (
         <div className="border-t border-amber/20 px-4 py-3 flex items-center gap-2 bg-white/60">
           <button onClick={() => onReject(org.org_id, org.org_name, true)} disabled={isBusy}
@@ -355,10 +359,9 @@ function OrgCard({ org, onApprove, onReject, onBan, busy }) {
         </div>
       )}
 
-      {/* ── Approved expanded section ── */}
+      {/* Expanded section */}
       {!isPending && open && (
         <div className="border-t border-border">
-
           {/* Action bar */}
           <div className="flex items-center gap-1 px-4 py-2.5 bg-mist/60 flex-wrap">
             <button onClick={() => toggleSection('creds')}
@@ -372,11 +375,9 @@ function OrgCard({ org, onApprove, onReject, onBan, busy }) {
             </button>
             <button onClick={() => toggleSection('ban')}
               className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
-                banConfirm
-                  ? 'bg-amber text-white'
-                  : org.banned
-                  ? 'bg-white border border-leaf/30 text-leaf hover:bg-leaf/5'
-                  : 'bg-white border border-border text-slate2 hover:border-amber/40 hover:text-amber'
+                banConfirm ? 'bg-amber text-white'
+                : org.banned ? 'bg-white border border-leaf/30 text-leaf hover:bg-leaf/5'
+                : 'bg-white border border-border text-slate2 hover:border-amber/40 hover:text-amber'
               }`}>
               {org.banned ? <ShieldCheck className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
               {org.banned ? 'Unsuspend' : 'Suspend'}
@@ -392,20 +393,22 @@ function OrgCard({ org, onApprove, onReject, onBan, busy }) {
 
             {showCreds && (
               <CredentialsPanel
-                orgId={org.org_id}
+                userId={org.owner_id}
                 email={localEmail}
                 password={localPassword}
                 onClose={() => setShowCreds(false)}
                 onSaved={(e, p) => { setLocalEmail(e); setLocalPassword(p); }}
+                onToast={onToast}
               />
             )}
 
             {showReset && (
               <PasswordResetPanel
                 userId={org.owner_id}
-                orgId={org.org_id}
+                ownerEmail={org.owner_email}
                 onClose={() => setShowReset(false)}
                 onPasswordSaved={p => { setLocalPassword(p); setLocalEmail(org.owner_email); }}
+                onToast={onToast}
               />
             )}
 
@@ -453,7 +456,6 @@ function OrgCard({ org, onApprove, onReject, onBan, busy }) {
               </div>
             )}
 
-            {/* Joined date footer */}
             {!showCreds && !showReset && !banConfirm && !deleteConfirm && (
               <p className="text-xs text-slate2">
                 Joined {new Date(org.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -468,14 +470,14 @@ function OrgCard({ org, onApprove, onReject, onBan, busy }) {
 
 // ── CreateAccountForm ─────────────────────────────────────────────────────────
 
-function CreateAccountForm({ onCreated, onClose }) {
-  const [orgName, setOrgName]         = useState('');
-  const [propName, setPropName]       = useState('');
-  const [email, setEmail]             = useState('');
-  const [password, setPassword]       = useState('');
-  const [showPass, setShowPass]       = useState(false);
-  const [busy, setBusy]               = useState(false);
-  const [error, setError]             = useState('');
+function CreateAccountForm({ onCreated, onClose, onToast }) {
+  const [orgName, setOrgName]   = useState('');
+  const [propName, setPropName] = useState('');
+  const [email, setEmail]       = useState('');
+  const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
+  const [busy, setBusy]         = useState(false);
+  const [error, setError]       = useState('');
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -491,8 +493,9 @@ function CreateAccountForm({ onCreated, onClose }) {
         body: JSON.stringify({ email: email.trim(), password, org_name: orgName.trim(), property_name: propName.trim() || null }),
       });
       let json = {};
-      try { json = await res.json(); } catch (_) { /* non-JSON response */ }
+      try { json = await res.json(); } catch (_) {}
       if (!res.ok) throw new Error(json.error || `Server error ${res.status}`);
+      onToast?.({ message: `Account created for ${email.trim()}`, type: 'success' });
       onCreated({ email: email.trim(), password, orgName: orgName.trim() });
     } catch (err) {
       setError(toMsg(err));
@@ -527,7 +530,7 @@ function CreateAccountForm({ onCreated, onClose }) {
       </div>
       <div>
         <label className="block text-xs font-semibold text-slate2 mb-1.5">Login email <span className="text-coral">*</span></label>
-        <input required type="email" value={email} onChange={e => setEmail(e.target.value)} className={inputCls} placeholder="owner@example.com" />
+        <input required type="text" inputMode="email" value={email} onChange={e => setEmail(e.target.value)} className={inputCls} placeholder="owner@example.com" />
       </div>
       <div>
         <label className="block text-xs font-semibold text-slate2 mb-1.5">Password <span className="text-coral">*</span></label>
@@ -559,7 +562,7 @@ function CreateAccountForm({ onCreated, onClose }) {
   );
 }
 
-// ── CredentialsCard ───────────────────────────────────────────────────────────
+// ── CredentialsCard (post-creation) ──────────────────────────────────────────
 
 function CredentialsCard({ creds, onClose }) {
   const [copied, setCopied] = useState(false);
@@ -598,6 +601,15 @@ export default function AdminPage({ onSignOut, onOpenApp }) {
   const [busy, setBusy]         = useState(null);
   const [showCreate, setShowCreate] = useState(false);
   const [creds, setCreds]       = useState(null);
+  const [toasts, setToasts]     = useState([]);
+
+  function toast(t) {
+    const id = Date.now();
+    setToasts(prev => [...prev, { id, ...t }]);
+  }
+  function dismissToast(id) {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -610,7 +622,10 @@ export default function AdminPage({ onSignOut, onOpenApp }) {
 
   useEffect(() => {
     const ch = supabase.channel('admin-watch')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'memberships' }, load)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'memberships' }, () => {
+        load();
+        toast({ message: 'New signup!', type: 'success' });
+      })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [load]);
@@ -620,6 +635,7 @@ export default function AdminPage({ onSignOut, onOpenApp }) {
     await supabase.rpc('admin_approve_org', { p_org_id: org_id });
     await load();
     setBusy(null);
+    toast({ message: 'Account approved', type: 'success' });
   }
 
   async function reject(org_id, org_name, skipConfirm = false) {
@@ -628,6 +644,7 @@ export default function AdminPage({ onSignOut, onOpenApp }) {
     await supabase.rpc('admin_reject_org', { p_org_id: org_id });
     await load();
     setBusy(null);
+    toast({ message: `"${org_name}" removed`, type: 'success' });
   }
 
   async function ban(user_id, banned) {
@@ -636,6 +653,7 @@ export default function AdminPage({ onSignOut, onOpenApp }) {
     await supabase.rpc('admin_set_banned', { p_user_id: user_id, p_banned: banned });
     await load();
     setBusy(null);
+    toast({ message: banned ? 'Account suspended' : 'Account unsuspended', type: 'success' });
   }
 
   function handleCreated(newCreds) {
@@ -649,6 +667,8 @@ export default function AdminPage({ onSignOut, onOpenApp }) {
 
   return (
     <div className="min-h-screen bg-mist">
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
+
       {/* Header */}
       <header className="bg-white border-b border-border px-5 flex items-center justify-between sticky top-0 z-40"
         style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)', paddingBottom: '1rem' }}>
@@ -672,10 +692,9 @@ export default function AdminPage({ onSignOut, onOpenApp }) {
 
       <div className="max-w-lg mx-auto px-4 py-8 flex flex-col gap-8">
 
-        {/* Credentials after creation */}
         {creds && <CredentialsCard creds={creds} onClose={() => setCreds(null)} />}
 
-        {/* Create account section */}
+        {/* Create account */}
         <section>
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-bold text-ink">Accounts</h2>
@@ -685,7 +704,7 @@ export default function AdminPage({ onSignOut, onOpenApp }) {
               {showCreate ? 'Cancel' : 'New account'}
             </button>
           </div>
-          {showCreate && <CreateAccountForm onCreated={handleCreated} onClose={() => setShowCreate(false)} />}
+          {showCreate && <CreateAccountForm onCreated={handleCreated} onClose={() => setShowCreate(false)} onToast={toast} />}
         </section>
 
         {/* Pending */}
@@ -700,7 +719,7 @@ export default function AdminPage({ onSignOut, onOpenApp }) {
             {loading
               ? <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-slate2" /></div>
               : <div className="flex flex-col gap-2">
-                  {pending.map(o => <OrgCard key={o.org_id} org={o} busy={busy} onApprove={approve} onReject={reject} onBan={ban} />)}
+                  {pending.map(o => <OrgCard key={o.org_id} org={o} busy={busy} onApprove={approve} onReject={reject} onBan={ban} onToast={toast} />)}
                 </div>
             }
           </section>
@@ -716,7 +735,7 @@ export default function AdminPage({ onSignOut, onOpenApp }) {
             : approved.length === 0
               ? <div className="rounded-2xl bg-white border border-border px-5 py-8 text-center text-sm text-slate2">No active accounts yet</div>
               : <div className="flex flex-col gap-2">
-                  {approved.map(o => <OrgCard key={o.org_id} org={o} busy={busy} onApprove={approve} onReject={reject} onBan={ban} />)}
+                  {approved.map(o => <OrgCard key={o.org_id} org={o} busy={busy} onApprove={approve} onReject={reject} onBan={ban} onToast={toast} />)}
                 </div>
           }
         </section>

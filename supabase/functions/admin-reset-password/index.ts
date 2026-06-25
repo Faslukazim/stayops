@@ -5,7 +5,6 @@ const ADMIN_UID = '06d41f5f-07c6-4922-9456-3e935eef72e7';
 function getUidFromToken(token: string): string | null {
   try {
     const part = token.split('.')[1];
-    // JWT uses base64url — convert to standard base64 before atob
     const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
     const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
     return JSON.parse(atob(padded)).sub ?? null;
@@ -32,21 +31,20 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    const { user_id, new_password, org_id } = await req.json();
+    const { user_id, new_password } = await req.json();
     if (!user_id || !new_password) {
       return new Response(JSON.stringify({ error: 'Missing user_id or new_password' }), { status: 400, headers: corsHeaders });
     }
 
     const { error: resetErr } = await supabaseAdmin.auth.admin.updateUserById(user_id, { password: new_password });
-    if (resetErr) throw resetErr;
+    if (resetErr) throw new Error(resetErr.message);
 
-    if (org_id) {
-      const { data: userRow } = await supabaseAdmin.auth.admin.getUserById(user_id);
-      const email = userRow?.user?.email ?? '';
-      await supabaseAdmin
-        .from('admin_credentials')
-        .upsert({ org_id, email, password: new_password, updated_at: new Date().toISOString() });
-    }
+    // Save credentials keyed by user_id
+    const { data: userRow } = await supabaseAdmin.auth.admin.getUserById(user_id);
+    const email = userRow?.user?.email ?? '';
+    await supabaseAdmin
+      .from('admin_credentials')
+      .upsert({ user_id, email, password: new_password, updated_at: new Date().toISOString() });
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
