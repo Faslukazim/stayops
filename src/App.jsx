@@ -590,7 +590,7 @@ function VacateModal({ tenant, onConfirm, onCancel, saving }) {
               <Label>Security Deposit — {fmt(tenant.depositAmount)}</Label>
               <div className="mt-1.5 flex flex-col gap-2">
                 {[
-                  { id: 'returned', label: 'Return to tenant', color: 'text-leaf', border: 'border-leaf/40', bg: 'bg-leaf/5' },
+                  { id: 'returned', label: 'Return to tenant', color: 'text-success', border: 'border-success/40', bg: 'bg-success/5' },
                   { id: 'forfeited', label: 'Not refundable', color: 'text-coral', border: 'border-coral/40', bg: 'bg-coral/5' },
                   { id: 'later', label: 'Settle later', color: 'text-slate2', border: 'border-border', bg: 'bg-mist' },
                 ].map(opt => (
@@ -603,7 +603,7 @@ function VacateModal({ tenant, onConfirm, onCancel, saving }) {
                     }`}
                   >
                     <span className={`h-3.5 w-3.5 rounded-full border-2 shrink-0 flex items-center justify-center ${depositAction === opt.id ? opt.border : 'border-border'}`}>
-                      {depositAction === opt.id && <span className={`h-1.5 w-1.5 rounded-full ${opt.id === 'returned' ? 'bg-leaf' : opt.id === 'forfeited' ? 'bg-coral' : 'bg-slate2'}`} />}
+                      {depositAction === opt.id && <span className={`h-1.5 w-1.5 rounded-full ${opt.id === 'returned' ? 'bg-success' : opt.id === 'forfeited' ? 'bg-coral' : 'bg-slate2'}`} />}
                     </span>
                     {opt.label}
                   </button>
@@ -615,7 +615,7 @@ function VacateModal({ tenant, onConfirm, onCancel, saving }) {
           {/* Summary */}
           <div className="rounded-lg bg-mist px-3 py-2.5 text-xs text-slate2 space-y-0.5">
             <p>· Bed {tenant.bedNumber} will be marked <span className="font-semibold text-ink">available</span></p>
-            {hasDeposit && depositAction === 'returned'  && <p>· Deposit <span className="font-semibold text-leaf">returned</span></p>}
+            {hasDeposit && depositAction === 'returned'  && <p>· Deposit <span className="font-semibold text-success">returned</span></p>}
             {hasDeposit && depositAction === 'forfeited' && <p>· Deposit marked <span className="font-semibold text-coral">not refundable</span></p>}
             {hasDeposit && depositAction === 'later'     && <p>· Deposit appears in <span className="font-semibold text-amber">Deposits to Review</span></p>}
           </div>
@@ -676,7 +676,7 @@ function VacatedTenantCard({ tenant: t, onReturnDeposit, onForfeitDeposit, onDel
                 <Label>Security Deposit</Label>
                 <p className="mt-0.5 text-sm font-semibold tabular-nums">{fmt(t.depositAmount)}</p>
               </div>
-              <span className={`text-xs font-semibold ${t.depositStatus === 'returned' ? 'text-leaf' : t.depositStatus === 'forfeited' ? 'text-coral' : 'text-amber'}`}>
+              <span className={`text-xs font-semibold ${t.depositStatus === 'returned' ? 'text-success' : t.depositStatus === 'forfeited' ? 'text-coral' : 'text-amber'}`}>
                 {t.depositStatus === 'returned' ? 'Returned' : t.depositStatus === 'forfeited' ? 'Not refundable' : 'Pending'}
               </span>
             </div>
@@ -766,7 +766,7 @@ function TenantCard({ tenant, upiId, flashPaid, onEdit, onDelete, onVacate, onMa
           <button
             type="button"
             onClick={() => { closeSwipe(); onMarkPaid(tenant); }}
-            className="flex-1 flex flex-col items-center justify-center gap-1 bg-leaf text-white text-xs font-semibold"
+            className="flex-1 flex flex-col items-center justify-center gap-1 bg-green text-white text-xs font-semibold"
           >
             <CheckCircle2 className="h-4 w-4" />
             Paid
@@ -863,7 +863,7 @@ function TenantCard({ tenant, upiId, flashPaid, onEdit, onDelete, onVacate, onMa
                 </div>
               )}
               {depositReturned && (
-                <span className="text-xs font-semibold text-leaf">Returned</span>
+                <span className="text-xs font-semibold text-success">Returned</span>
               )}
               {depositForfeited && (
                 <span className="text-xs font-semibold text-coral">Deposit Not Refundable</span>
@@ -902,14 +902,14 @@ function TenantCard({ tenant, upiId, flashPaid, onEdit, onDelete, onVacate, onMa
             onClick={() => onMarkUnpaid(tenant)}
             className="flex items-center gap-1.5 text-xs text-slate2 hover:text-ink transition-colors py-1"
           >
-            <CheckCircle2 className="h-3.5 w-3.5 text-leaf" />
+            <CheckCircle2 className="h-3.5 w-3.5 text-success" />
             Paid · Undo
           </button>
         ) : (
           <button
             type="button"
             onClick={() => onMarkPaid(tenant)}
-            className="flex items-center gap-1.5 rounded-lg bg-leaf px-3 py-1.5 text-sm font-semibold text-white hover:bg-leaf/90 active:scale-95 transition-all"
+            className="flex items-center gap-1.5 rounded-lg bg-green px-3 py-1.5 text-sm font-semibold text-white hover:bg-green-hover active:scale-95 transition-all"
           >
             <CheckCircle2 className="h-3.5 w-3.5" />
             Mark Paid
@@ -973,19 +973,19 @@ function BusinessHealth({ tenants, totalBeds }) {
         label: 'Occupancy',
         value: `${pct}%`,
         sub: `${occupied}/${totalBeds} beds`,
-        color: pct >= 80 ? 'text-leaf' : pct >= 50 ? 'text-amber' : 'text-coral',
+        color: pct >= 80 ? 'text-success' : pct >= 50 ? 'text-amber' : 'text-coral',
       },
       {
         label: 'Vacant Beds',
         value: vacant,
         sub: `of ${totalBeds}`,
-        color: vacant > 0 ? 'text-amber' : 'text-leaf',
+        color: vacant > 0 ? 'text-amber' : 'text-success',
       },
       {
         label: 'Pending Rent',
         value: fmt(pendingRent),
         sub: `${unpaid.length} unpaid`,
-        color: pendingRent > 0 ? 'text-coral' : 'text-leaf',
+        color: pendingRent > 0 ? 'text-coral' : 'text-success',
       },
       {
         label: 'Potential Revenue',
@@ -1011,9 +1011,9 @@ function MoveInHealth({ tenants }) {
 
   return (
     <StatStrip stats={[
-      { label: 'Move-In This Month', value: fmt(moveInTotal),    sub: `${newThisMonth.length} new tenant${newThisMonth.length !== 1 ? 's' : ''}`, color: moveInTotal > 0 ? 'text-leaf' : 'text-slate2' },
+      { label: 'Move-In This Month', value: fmt(moveInTotal),    sub: `${newThisMonth.length} new tenant${newThisMonth.length !== 1 ? 's' : ''}`, color: moveInTotal > 0 ? 'text-success' : 'text-slate2' },
       { label: 'Admission Revenue',  value: fmt(admissionTotal), sub: 'non-refundable fees',  color: admissionTotal > 0 ? 'text-ink' : 'text-slate2' },
-      { label: 'Deposits Held',      value: fmt(depositsHeld),   sub: 'refundable liability', color: depositsHeld > 0 ? 'text-amber' : 'text-leaf' },
+      { label: 'Deposits Held',      value: fmt(depositsHeld),   sub: 'refundable liability', color: depositsHeld > 0 ? 'text-amber' : 'text-success' },
       { label: 'Deposits Settled',   value: fmt(depositsSettled),sub: depositsForfeited > 0 ? `${fmt(depositsForfeited)} forfeited` : 'returned', color: 'text-slate2' },
     ]} />
   );
@@ -1058,9 +1058,9 @@ function FinancialHealth({ selectedPropertyId, totalBeds, tenants }) {
       <div className="grid grid-cols-2 gap-px bg-border sm:grid-cols-4">
         {[
           { label: 'Potential',     value: fmt(potentialRevenue), sub: `${occupied} occupied beds`,                 color: 'text-ink' },
-          { label: 'Collected',     value: fmt(actualCollected),  sub: `${paidRecords.length} paid`,                color: actualCollected > 0 ? 'text-leaf' : 'text-slate2' },
+          { label: 'Collected',     value: fmt(actualCollected),  sub: `${paidRecords.length} paid`,                color: actualCollected > 0 ? 'text-success' : 'text-slate2' },
           { label: 'Deductions',    value: fmt(deductionLoss),    sub: deductionLoss > 0 ? 'adjustments' : 'none', color: deductionLoss > 0 ? 'text-coral' : 'text-ink' },
-          { label: 'Vacancy Loss',  value: fmt(vacancyLoss),      sub: `${vacant} vacant beds`,                     color: vacancyLoss > 0 ? 'text-amber' : 'text-leaf' },
+          { label: 'Vacancy Loss',  value: fmt(vacancyLoss),      sub: `${vacant} vacant beds`,                     color: vacancyLoss > 0 ? 'text-amber' : 'text-success' },
         ].map(s => (
           <div key={s.label} className="bg-white px-4 py-4">
             <Label>{s.label}</Label>
@@ -1073,8 +1073,8 @@ function FinancialHealth({ selectedPropertyId, totalBeds, tenants }) {
         <div className={`grid grid-cols-3 gap-px bg-border border-t border-border`}>
           {[
             { label: 'Expenses',   value: fmt(totalExpenses), color: 'text-coral' },
-            { label: netProfit >= 0 ? 'Net Profit' : 'Net Loss', value: fmt(Math.abs(netProfit)), color: netProfit >= 0 ? 'text-leaf' : 'text-coral' },
-            { label: 'Profit %',  value: actualCollected > 0 ? `${Math.round((netProfit / actualCollected) * 100)}%` : '—', color: netProfit >= 0 ? 'text-leaf' : 'text-coral' },
+            { label: netProfit >= 0 ? 'Net Profit' : 'Net Loss', value: fmt(Math.abs(netProfit)), color: netProfit >= 0 ? 'text-success' : 'text-coral' },
+            { label: 'Profit %',  value: actualCollected > 0 ? `${Math.round((netProfit / actualCollected) * 100)}%` : '—', color: netProfit >= 0 ? 'text-success' : 'text-coral' },
           ].map(s => (
             <div key={s.label} className="bg-white px-4 py-3">
               <Label>{s.label}</Label>
@@ -1242,12 +1242,12 @@ function relativeTime(iso) {
 }
 
 const ACTIVITY_DOT = {
-  tenant_assigned: 'bg-leaf',
+  tenant_assigned: 'bg-green',
   tenant_moved:    'bg-amber',
   tenant_vacated:  'bg-coral',
-  payment_paid:    'bg-leaf',
+  payment_paid:    'bg-green',
   payment_unpaid:  'bg-coral',
-  deposit_returned:'bg-leaf',
+  deposit_returned:'bg-green',
   deposit_forfeited:'bg-coral',
 };
 
@@ -1317,7 +1317,7 @@ function PendingBookings({ bookings, onConvertBooking, onGoToRooms }) {
             <button
               type="button"
               onClick={() => onConvertBooking(b)}
-              className="shrink-0 text-xs font-semibold text-leaf border border-leaf/30 rounded-lg px-2.5 py-1.5 hover:bg-leaf/5 transition-colors"
+              className="shrink-0 text-xs font-semibold text-success border border-success/30 rounded-lg px-2.5 py-1.5 hover:bg-success/5 transition-colors"
             >
               Convert
             </button>
@@ -1343,7 +1343,7 @@ function MovedOutThisMonth({ tenants }) {
             </div>
             <div className="text-right shrink-0">
               <p className="text-xs text-slate2">{t.endDate}</p>
-              <p className={`text-xs font-semibold mt-0.5 ${t.depositStatus === 'returned' ? 'text-leaf' : t.depositStatus === 'forfeited' ? 'text-coral' : 'text-amber'}`}>
+              <p className={`text-xs font-semibold mt-0.5 ${t.depositStatus === 'returned' ? 'text-success' : t.depositStatus === 'forfeited' ? 'text-coral' : 'text-amber'}`}>
                 {t.depositStatus === 'returned' ? 'Deposit returned' : t.depositStatus === 'forfeited' ? 'Deposit forfeited' : 'Deposit pending'}
               </p>
             </div>
@@ -1407,7 +1407,7 @@ function UpiSettings({ propertyId, upiId, onSave }) {
               className="flex-1 rounded-lg border border-border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink"
             />
             <Btn variant="primary" disabled={saving} {...{ type: 'submit' }}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <CheckCircle2 className="h-4 w-4 text-leaf" /> : <Save className="h-4 w-4" />}
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <CheckCircle2 className="h-4 w-4 text-success" /> : <Save className="h-4 w-4" />}
               {saved ? 'Saved' : 'Save'}
             </Btn>
           </div>
@@ -1531,7 +1531,7 @@ function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, sa
           const collected = tenants.filter(t => t.paymentStatus === 'Paid').reduce((s, t) => s + t.monthlyRent, 0);
           return (
             <div className="flex items-center gap-3 rounded-xl border border-border bg-white px-4 py-2.5 text-sm">
-              <span className="text-leaf font-semibold">{paid} paid</span>
+              <span className="text-success font-semibold">{paid} paid</span>
               <span className="text-slate2">·</span>
               <span className="text-coral font-semibold">{unpaid} unpaid</span>
               <span className="text-slate2">·</span>

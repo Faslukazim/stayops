@@ -18,7 +18,7 @@ function OccBar({ occupied, capacity }) {
   const pct = capacity ? Math.round((occupied / capacity) * 100) : 0;
   return (
     <div className="mt-2 h-1.5 w-full rounded-full bg-border overflow-hidden">
-      <div className="h-full rounded-full bg-leaf transition-all" style={{ width: `${pct}%` }} />
+      <div className="h-full rounded-full bg-green transition-all" style={{ width: `${pct}%` }} />
     </div>
   );
 }
@@ -41,21 +41,21 @@ function RoomCard({ room, isSelected, onClick }) {
       onClick={onClick}
       className={`w-full text-left rounded-xl border p-4 transition-all active:scale-[0.98] ${
         isSelected
-          ? 'border-leaf bg-leaf/5 shadow-lift'
-          : 'border-border bg-white hover:border-slate2/60 shadow-card'
+          ? 'border-green bg-green/5 shadow-lift'
+          : 'border-border bg-white hover:border-slate/60 shadow-card'
       }`}
     >
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="font-semibold text-base text-ink">Room {room.room_number}</p>
+          <p className="text-base font-semibold text-charcoal">Room {room.room_number}</p>
           {isSelected && (
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-leaf">Selected</span>
+            <span className="text-[10px] font-semibold uppercase tracking-wide text-green">Selected</span>
           )}
         </div>
         {badgeStatus && <StatusBadge status={badgeStatus} label={badgeLabel} />}
       </div>
 
-      <p className="mt-1 text-xs text-slate2">
+      <p className="mt-1 text-slate text-sm">
         {occupied} Occupied · {capacity - occupied} Vacant
       </p>
 
@@ -66,7 +66,7 @@ function RoomCard({ room, isSelected, onClick }) {
           <div
             key={i}
             className={`h-4 w-4 rounded-sm ${
-              i < occupied ? 'bg-leaf' : isSelected ? 'bg-leaf/25 border border-leaf/40' : 'bg-border'
+              i < occupied ? 'bg-green' : isSelected ? 'bg-green/25 border border-green/40' : 'bg-border'
             }`}
           />
         ))}
@@ -248,7 +248,7 @@ function BedRow({ bed, roomNumber, roomId, rooms, upiId, onMarkPaid, onMarkUnpai
             <button
               type="button"
               onClick={() => onConvertBooking(booking)}
-              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold text-leaf hover:bg-leaf/10 transition-colors"
+              className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-semibold text-success hover:bg-success/10 transition-colors"
             >
               <Plus className="h-3.5 w-3.5" />
               Convert to Tenant
@@ -334,7 +334,7 @@ function BedRow({ bed, roomNumber, roomId, rooms, upiId, onMarkPaid, onMarkUnpai
       {/* Top row: bed number + name + payment toggle */}
       <div className="flex items-center gap-3">
         <div className={`flex h-8 w-8 items-center justify-center rounded-lg text-xs font-semibold tabular-nums shrink-0 ${
-          isPaid ? 'bg-leaf/10 text-leaf' : 'bg-coral/10 text-coral'
+          isPaid ? 'bg-success/10 text-success' : 'bg-coral/10 text-coral'
         }`}>
           {bed.bed_number}
         </div>
@@ -757,8 +757,8 @@ export default function RoomsPage({ selectedPropertyId, organizationId, upiId, o
       <StatStrip stats={[
         { label: 'Total rooms',     value: rooms.length,                          color: 'text-ink' },
         { label: 'Occupancy',       value: `${Math.round((stats.occupied / (stats.totalBeds || 1)) * 100)}%` },
-        { label: 'Vacant beds',     value: stats.totalBeds - stats.occupied,      color: (stats.totalBeds - stats.occupied) > 0 ? 'text-amber' : 'text-leaf' },
-        { label: 'Rooms Pending', value: stats.unpaidRooms,                     color: stats.unpaidRooms > 0 ? 'text-coral' : 'text-leaf' },
+        { label: 'Vacant beds',     value: stats.totalBeds - stats.occupied,      color: (stats.totalBeds - stats.occupied) > 0 ? 'text-amber' : 'text-success' },
+        { label: 'Rooms Pending', value: stats.unpaidRooms,                     color: stats.unpaidRooms > 0 ? 'text-coral' : 'text-success' },
       ]} />
       </div>
       <Btn variant="ghost" className="shrink-0 mt-0.5" onClick={() => setAddingRoom(true)}>
