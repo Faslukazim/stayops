@@ -81,7 +81,7 @@ export function Label({ children, className = '' }) {
 
 export function Card({ children, className = '' }) {
   return (
-    <div className={`rounded-xl bg-white shadow-card border border-border ${className}`}>
+    <div className={`rounded-xl bg-white shadow-sm hover:shadow-md transition-shadow duration-200 border border-border ${className}`}>
       {children}
     </div>
   );
@@ -105,9 +105,9 @@ export function SectionHeader({ title, action }) {
 
 export function Btn({ children, className = '', variant = 'ghost', size = 'md', ...props }) {
   const variants = {
-    primary:        'bg-forest text-white hover:bg-forest/80',
-    secondary:      'border border-border text-slate2 hover:bg-mist hover:text-ink',
-    ghost:          'text-slate2 hover:bg-mist hover:text-ink',
+    primary:        'bg-emerald text-white hover:bg-emerald/90',
+    secondary:      'border border-border text-charcoal hover:bg-light hover:text-charcoal',
+    ghost:          'text-slate2 hover:bg-light hover:text-charcoal',
     danger:         'text-coral hover:bg-coral/10',
     success:        'text-leaf hover:bg-leaf/10',
     'filled-success': 'bg-leaf text-white hover:bg-leaf/90',
@@ -158,20 +158,24 @@ export function IconBtn({ children, className = '', variant = 'ghost', title, ..
 
 export function StatusBadge({ status, label }) {
   const styles = {
-    paid:    'bg-leaf/10 text-leaf',
-    unpaid:  'bg-coral/10 text-coral',
-    vacant:  'bg-amber/10 text-amber',
-    full:    'bg-leaf/10 text-leaf',
-    empty:   'bg-amber/10 text-amber',
-    partial: 'bg-mist text-slate2',
-    free:    'bg-leaf/10 text-leaf',
+    paid:     'bg-success/10 text-success border border-success/20',
+    unpaid:   'bg-error/10 text-error border border-error/20',
+    vacant:   'bg-slate/10 text-slate border border-slate/20',
+    full:     'bg-success/10 text-success border border-success/20',
+    empty:    'bg-slate/10 text-slate border border-slate/20',
+    partial:  'bg-warning/10 text-warning border border-warning/20',
+    free:     'bg-emerald/10 text-emerald border border-emerald/20',
+    active:   'bg-emerald/10 text-emerald border border-emerald/20',
+    overdue:  'bg-error/10 text-error border border-error/20',
+    pending:  'bg-warning/10 text-warning border border-warning/20',
+    occupied: 'bg-midnight/10 text-midnight border border-midnight/20',
   };
   const defaultLabels = {
     paid: 'Paid', unpaid: 'Unpaid', vacant: 'Vacant',
     full: 'Full', empty: 'Empty', partial: 'Partial', free: 'Free',
   };
   return (
-    <span className={`inline-flex items-center rounded px-2 py-0.5 text-2xs font-semibold shrink-0 ${styles[status] ?? 'bg-mist text-slate2'}`}>
+    <span className={`inline-flex items-center rounded px-2 py-0.5 text-2xs font-semibold shrink-0 ${styles[status] ?? 'bg-surface text-slate border border-slate/20'}`}>
       {label ?? defaultLabels[status] ?? status}
     </span>
   );
@@ -396,7 +400,7 @@ export function CollectModal({ record, onConfirm, onCancel }) {
                 <select
                   value={reason}
                   onChange={e => setReason(e.target.value)}
-                  className="w-full appearance-none rounded-lg border border-border bg-white px-3 py-2.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink"
+                  className="w-full appearance-none rounded-lg border border-border bg-white px-3 py-2.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-emerald/30 focus:border-emerald"
                 >
                   <option value="">Select reason…</option>
                   {DEDUCTION_REASONS.map(r => <option key={r} value={r}>{r}</option>)}

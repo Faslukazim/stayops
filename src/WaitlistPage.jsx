@@ -20,7 +20,7 @@ export default function WaitlistPage({ email, onSignOut }) {
         href="https://wa.me/919633310117?text=Hi%2C%20I%20signed%20up%20for%20NivaOps%20and%20would%20like%20to%20get%20access"
         target="_blank"
         rel="noopener noreferrer"
-        className="mt-6 inline-flex items-center gap-2 rounded-xl bg-forest px-5 py-2.5 text-sm font-semibold text-white hover:bg-forest/90 transition-colors"
+        className="mt-6 inline-flex items-center gap-2 rounded-xl bg-emerald px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald/90 transition-colors"
       >
         Message us on WhatsApp to speed it up
       </a>

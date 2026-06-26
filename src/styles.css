@@ -2,18 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
 :root {
-  --color-forest:     #20342C;
-  --color-sage:       #B2CBB6;
-  --color-sage-deep:  #8FBC8F;
-  --color-warm-white: #F7F6F3;
-  --color-charcoal:   #1D2420;
-  --color-surface:    #ECEFEA;
+  --color-midnight:  #111827;
+  --color-emerald:   #00C853;
+  --color-charcoal:  #0F172A;
+  --color-slate:     #475569;
+  --color-light:     #F8FAFC;
+  --color-surface:   #F1F5F9;
+  --color-border:    #E2E8F0;
+  --color-success:   #16A34A;
+  --color-warning:   #F59E0B;
+  --color-error:     #DC2626;
+  --color-info:      #2563EB;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
 
-  color: #1D2420;
-  background: #F7F6F3;
+  color: #0F172A;
+  background: #FFFFFF;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -23,11 +31,14 @@
 body {
   margin: 0;
   min-width: 320px;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Geist', 'Inter', system-ui, sans-serif;
+  color: #0F172A;
+  background: #FFFFFF;
+  -webkit-font-smoothing: antialiased;
 }
 
 .font-marketing {
-  font-family: 'Satoshi', system-ui, sans-serif;
+  font-family: 'Geist', system-ui, sans-serif;
 }
 
 button,

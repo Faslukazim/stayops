@@ -165,7 +165,7 @@ function CredentialsPanel({ userId, email: initEmail, password: initPassword, on
             value={email}
             onChange={e => setEmail(e.target.value)}
             placeholder="Login email"
-            className="w-full rounded-xl border border-border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink"
+            className="w-full rounded-xl border border-border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald/30 focus:border-emerald"
           />
           <div className="relative">
             <input
@@ -173,14 +173,14 @@ function CredentialsPanel({ userId, email: initEmail, password: initPassword, on
               value={password}
               onChange={e => setPassword(e.target.value)}
               placeholder="Current password"
-              className="w-full rounded-xl border border-border px-3 py-2.5 text-sm font-mono pr-10 focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink"
+              className="w-full rounded-xl border border-border px-3 py-2.5 text-sm font-mono pr-10 focus:outline-none focus:ring-2 focus:ring-emerald/30 focus:border-emerald"
             />
             <button type="button" onClick={() => setShow(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate2 hover:text-ink">
               {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
           <button type="submit" disabled={busy}
-            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-forest text-white py-2.5 text-sm font-bold hover:bg-forest/90 transition-colors disabled:opacity-60">
+            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald text-white py-2.5 text-sm font-bold hover:bg-emerald/90 transition-colors disabled:opacity-60">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
             Save
           </button>
@@ -245,7 +245,7 @@ function PasswordResetPanel({ userId, ownerEmail, onClose, onPasswordSaved, onTo
           value={password}
           onChange={e => setPassword(e.target.value)}
           placeholder="Enter new password"
-          className="w-full rounded-xl border border-border px-3 py-2.5 text-sm font-mono pr-10 focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink"
+          className="w-full rounded-xl border border-border px-3 py-2.5 text-sm font-mono pr-10 focus:outline-none focus:ring-2 focus:ring-emerald/30 focus:border-emerald"
         />
         <button type="button" onClick={() => setShow(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate2 hover:text-ink">
           {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -258,7 +258,7 @@ function PasswordResetPanel({ userId, ownerEmail, onClose, onPasswordSaved, onTo
       </button>
 
       <button type="submit" disabled={busy}
-        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-forest text-white py-2.5 text-sm font-bold hover:bg-forest/90 transition-colors disabled:opacity-60">
+        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald text-white py-2.5 text-sm font-bold hover:bg-emerald/90 transition-colors disabled:opacity-60">
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
         Set password
       </button>
@@ -366,12 +366,12 @@ function OrgCard({ org, onApprove, onReject, onBan, busy, onToast }) {
           {/* Action bar */}
           <div className="flex items-center gap-1 px-4 py-2.5 bg-mist/60 flex-wrap">
             <button onClick={() => toggleSection('creds')}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${showCreds ? 'bg-forest text-white' : 'bg-white border border-border text-slate2 hover:bg-mist'}`}>
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${showCreds ? 'bg-midnight text-white' : 'bg-white border border-border text-slate2 hover:bg-light'}`}>
               <Eye className="h-3.5 w-3.5" />
               {localPassword ? 'View password' : 'Save password'}
             </button>
             <button onClick={() => toggleSection('reset')}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${showReset ? 'bg-forest text-white' : 'bg-white border border-border text-ink hover:bg-mist'}`}>
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${showReset ? 'bg-midnight text-white' : 'bg-white border border-border text-ink hover:bg-light'}`}>
               <KeyRound className="h-3.5 w-3.5" /> Reset password
             </button>
             <button onClick={() => toggleSection('ban')}
@@ -505,7 +505,7 @@ function CreateAccountForm({ onCreated, onClose, onToast }) {
     }
   }
 
-  const inputCls = 'w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink transition-all';
+  const inputCls = 'w-full rounded-xl border border-border bg-white px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald/30 focus:border-emerald transition-all';
 
   return (
     <form onSubmit={handleSubmit} className="rounded-2xl bg-white border border-border p-5 flex flex-col gap-4">
@@ -555,7 +555,7 @@ function CreateAccountForm({ onCreated, onClose, onToast }) {
       </div>
 
       <button type="submit" disabled={busy}
-        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-forest text-white py-3 text-sm font-bold hover:bg-forest/90 transition-colors disabled:opacity-60">
+        className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-emerald text-white py-3 text-sm font-bold hover:bg-emerald/90 transition-colors disabled:opacity-60">
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
         Create account
       </button>
@@ -700,7 +700,7 @@ export default function AdminPage({ onSignOut, onOpenApp }) {
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-bold text-ink">Accounts</h2>
             <button onClick={() => { setShowCreate(v => !v); setCreds(null); }}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-forest text-white px-3 py-1.5 text-xs font-bold hover:bg-forest/90 transition-colors">
+              className="inline-flex items-center gap-1.5 rounded-xl bg-emerald text-white px-3 py-1.5 text-xs font-bold hover:bg-emerald/90 transition-colors">
               {showCreate ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
               {showCreate ? 'Cancel' : 'New account'}
             </button>

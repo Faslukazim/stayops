@@ -12,7 +12,7 @@ export default function OnboardingPage({ email, onCreated, onSignOut }) {
   const [error, setError]             = useState('');
   const [busy, setBusy]               = useState(false);
 
-  const inputCls = 'w-full rounded-xl border border-border bg-white px-4 py-3 text-base text-ink placeholder:text-slate2/60 focus:outline-none focus:ring-2 focus:ring-sage/40 focus:border-forest transition-all';
+  const inputCls = 'w-full rounded-xl border border-border bg-white px-4 py-3 text-base text-ink placeholder:text-slate2/60 focus:outline-none focus:ring-2 focus:ring-emerald/30 focus:border-emerald transition-all';
 
   async function handleSignOut() {
     try { await signOut(); } finally { onSignOut?.(); }
@@ -57,8 +57,8 @@ export default function OnboardingPage({ email, onCreated, onSignOut }) {
 
       {/* Progress dots */}
       <div className="flex items-center justify-center gap-2 mt-6">
-        <div className={`h-2 rounded-full transition-all duration-300 ${step >= 1 ? 'w-8 bg-ink' : 'w-2 bg-border'}`} />
-        <div className={`h-2 rounded-full transition-all duration-300 ${step >= 2 ? 'w-8 bg-ink' : 'w-2 bg-border'}`} />
+        <div className={`h-2 rounded-full transition-all duration-300 ${step >= 1 ? 'w-8 bg-emerald' : 'w-2 bg-border'}`} />
+        <div className={`h-2 rounded-full transition-all duration-300 ${step >= 2 ? 'w-8 bg-emerald' : 'w-2 bg-border'}`} />
       </div>
 
       {/* Content */}
@@ -91,7 +91,7 @@ export default function OnboardingPage({ email, onCreated, onSignOut }) {
 
               <button
                 type="submit"
-                className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-forest text-white py-3.5 text-sm font-bold hover:bg-forest/90 active:scale-[0.98] transition-all"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald text-white py-3.5 text-sm font-bold hover:bg-emerald/90 active:scale-[0.98] transition-all"
               >
                 Continue
                 <ArrowRight className="h-4 w-4" />
@@ -152,7 +152,7 @@ export default function OnboardingPage({ email, onCreated, onSignOut }) {
                 <button
                   type="submit"
                   disabled={busy}
-                  className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-forest text-white py-3.5 text-sm font-bold hover:bg-forest/90 active:scale-[0.98] transition-all disabled:opacity-60"
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald text-white py-3.5 text-sm font-bold hover:bg-emerald/90 active:scale-[0.98] transition-all disabled:opacity-60"
                 >
                   {busy
                     ? <Loader2 className="h-4 w-4 animate-spin" />
