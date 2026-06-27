@@ -1435,6 +1435,14 @@ function MovedOutThisMonth({ tenants }) {
 function DashboardPage({ tenants, totalBeds, selectedPropertyId, upiId, pendingDeposits, movedOutThisMonth, pendingBookings, onGoToFinance, onGoToRooms, onAddTenant, onAssignTenant, onMarkPaid, onViewTenant, onReturnDeposit, onForfeitDeposit, onConvertBooking }) {
   return (
     <div className="flex flex-col gap-4">
+      <SetupChecklist
+        totalBeds={totalBeds}
+        tenantCount={tenants.length}
+        upiId={upiId}
+        onGoToRooms={onGoToRooms}
+        onAddTenant={onAddTenant}
+        onGoToFinance={onGoToFinance}
+      />
       <BusinessHealth tenants={tenants} totalBeds={totalBeds} />
       <QuickActions
         onAssignTenant={onAssignTenant}
@@ -1667,28 +1675,101 @@ function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, sa
   );
 }
 
-// ─── empty workspace (new org / after clearing demo) ─────────────────────────
+// ─── empty workspace (no property yet) ───────────────────────────────────────
 
-function EmptyWorkspace({ onSeed, seeding }) {
+function EmptyWorkspace({ onSeed, seeding, onAddProperty }) {
   return (
     <div className="flex justify-center pt-6">
-      <Card className="w-full max-w-md p-6 text-center">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-mist">
-          <BedDouble className="h-6 w-6 text-ink" />
-        </div>
-        <h2 className="text-lg font-bold text-ink">Welcome to NivaOps</h2>
-        <p className="mt-1.5 text-sm text-slate2">
-          Your workspace is empty. Load a sample hostel — rooms, tenants, and this month&apos;s rent — to see how NivaOps works.
-        </p>
-        <Btn variant="primary" className="mt-4 w-full justify-center py-3" onClick={onSeed} disabled={seeding}>
-          {seeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          Load sample workspace
-        </Btn>
-        <p className="mt-2 text-xs text-slate2">
-          Adds &ldquo;Sample Hostel&rdquo; with 3 rooms, 6 tenants, and live rent statuses — clearly labelled demo data you can remove anytime.
-        </p>
-      </Card>
+      <div className="w-full max-w-md flex flex-col gap-3">
+
+        {/* Primary: set up real property */}
+        <Card className="p-6 text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-green/10">
+            <BedDouble className="h-6 w-6 text-green" />
+          </div>
+          <h2 className="text-base font-bold text-ink">Create your first property</h2>
+          <p className="mt-1 text-sm text-slate2">Name your property, then add rooms and tenants to get started.</p>
+          <Btn variant="primary" className="mt-4 w-full justify-center py-3" onClick={onAddProperty}>
+            <Plus className="h-4 w-4" /> Add property
+          </Btn>
+        </Card>
+
+        {/* Secondary: demo */}
+        <Card className="p-4 flex items-start gap-3">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-mist mt-0.5">
+            <Sparkles className="h-4 w-4 text-slate2" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-ink">Explore with sample data</p>
+            <p className="text-xs text-slate2 mt-0.5">Load a demo hostel with rooms, tenants and rent — remove it anytime.</p>
+          </div>
+          <Btn variant="secondary" size="sm" className="shrink-0 self-center" onClick={onSeed} disabled={seeding}>
+            {seeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            Try demo
+          </Btn>
+        </Card>
+
+      </div>
     </div>
+  );
+}
+
+// ─── setup checklist (shown on dashboard until all steps done) ────────────────
+
+function SetupChecklist({ totalBeds, tenantCount, upiId, onGoToRooms, onAddTenant, onGoToFinance }) {
+  const steps = [
+    {
+      done: totalBeds > 0,
+      label: 'Add your rooms and beds',
+      sub: 'Go to Rooms → Add room',
+      action: onGoToRooms,
+    },
+    {
+      done: tenantCount > 0,
+      label: 'Add your first tenant',
+      sub: 'Go to Tenants → Add tenant',
+      action: onAddTenant,
+    },
+    {
+      done: !!upiId,
+      label: 'Set your UPI ID',
+      sub: 'So tenants can pay directly via WhatsApp reminders',
+      action: onGoToFinance,
+    },
+  ];
+
+  const allDone = steps.every(s => s.done);
+  if (allDone) return null;
+
+  return (
+    <Card className="overflow-hidden">
+      <div className="px-4 pt-4 pb-1">
+        <p className="text-xs font-bold text-slate2 uppercase tracking-widest">Getting started</p>
+        <p className="text-sm font-semibold text-ink mt-0.5">Complete these steps to set up your workspace</p>
+      </div>
+      <div className="divide-y divide-border">
+        {steps.map((step, i) => (
+          <button
+            key={i}
+            type="button"
+            onClick={step.done ? undefined : step.action}
+            disabled={step.done}
+            className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${step.done ? 'opacity-60' : 'hover:bg-mist'}`}
+          >
+            <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+              step.done ? 'border-leaf bg-leaf' : 'border-border bg-white'
+            }`}>
+              {step.done && <CheckCircle2 className="h-3.5 w-3.5 text-white" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className={`text-sm font-medium ${step.done ? 'line-through text-slate2' : 'text-ink'}`}>{step.label}</p>
+              {!step.done && <p className="text-xs text-slate2 mt-0.5">{step.sub}</p>}
+            </div>
+            {!step.done && <ChevronRight className="h-4 w-4 text-slate2 shrink-0" />}
+          </button>
+        ))}
+      </div>
+    </Card>
   );
 }
 
@@ -2134,7 +2215,7 @@ export default function App({ session, organizationName, plan = 'starter', onSig
         {loading || loadingProperties
           ? <PageLoader />
           : properties.length === 0 && hasSupabaseConfig
-          ? <EmptyWorkspace onSeed={handleSeed} seeding={seeding} />
+          ? <EmptyWorkspace onSeed={handleSeed} seeding={seeding} onAddProperty={() => setShowAddProperty(true)} />
           : (
             <>
               {isDemoProperty && (
