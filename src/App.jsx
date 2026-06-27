@@ -1883,6 +1883,11 @@ export default function App({ session, organizationName, organizationId: orgIdPr
     return properties.reduce((s, p) => s + (p.total_beds ?? 0), 0);
   }, [properties, selectedPropertyId]);
 
+  // Reload properties when rooms change so totalBeds stays current
+  useEffect(() => {
+    if (roomsVersion > 0) loadProperties();
+  }, [roomsVersion]); // eslint-disable-line
+
   const organizationId = useMemo(
     () => properties.find(p => p.id === selectedPropertyId)?.organization_id ?? null,
     [properties, selectedPropertyId],
