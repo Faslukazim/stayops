@@ -1717,12 +1717,11 @@ function TenantsPage({ tenants, properties, defaultPropertyId, editingTenant, sa
 
 // ─── empty workspace (no property yet) ───────────────────────────────────────
 
-function EmptyWorkspace({ onSeed, seeding, onAddProperty }) {
+function EmptyWorkspace({ onSeed, seeding, onAddProperty, showDemo }) {
   return (
     <div className="flex justify-center pt-6">
       <div className="w-full max-w-md flex flex-col gap-3">
 
-        {/* Primary: set up real property */}
         <Card className="p-6 text-center">
           <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-green/10">
             <BedDouble className="h-6 w-6 text-green" />
@@ -1734,20 +1733,21 @@ function EmptyWorkspace({ onSeed, seeding, onAddProperty }) {
           </Btn>
         </Card>
 
-        {/* Secondary: demo */}
-        <Card className="p-4 flex items-start gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-mist mt-0.5">
-            <Sparkles className="h-4 w-4 text-slate2" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-ink">Explore with sample data</p>
-            <p className="text-xs text-slate2 mt-0.5">Load a demo hostel with rooms, tenants and rent — remove it anytime.</p>
-          </div>
-          <Btn variant="secondary" size="sm" className="shrink-0 self-center" onClick={onSeed} disabled={seeding}>
-            {seeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-            Try demo
-          </Btn>
-        </Card>
+        {showDemo && (
+          <Card className="p-4 flex items-start gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-mist mt-0.5">
+              <Sparkles className="h-4 w-4 text-slate2" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-ink">Explore with sample data</p>
+              <p className="text-xs text-slate2 mt-0.5">Load a demo hostel with rooms, tenants and rent — remove it anytime.</p>
+            </div>
+            <Btn variant="secondary" size="sm" className="shrink-0 self-center" onClick={onSeed} disabled={seeding}>
+              {seeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              Try demo
+            </Btn>
+          </Card>
+        )}
 
       </div>
     </div>
@@ -2282,7 +2282,7 @@ export default function App({ session, organizationName, organizationId: orgIdPr
         {loading || loadingProperties
           ? <PageLoader />
           : properties.length === 0 && hasSupabaseConfig
-          ? <EmptyWorkspace onSeed={handleSeed} seeding={seeding} onAddProperty={() => setShowAddProperty(true)} />
+          ? <EmptyWorkspace onSeed={handleSeed} seeding={seeding} onAddProperty={() => setShowAddProperty(true)} showDemo={session?.user?.email === 'demo@stayops.com'} />
           : (
             <>
               {isDemoProperty && (
