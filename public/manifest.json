@@ -5,7 +5,7 @@
   "description": "The operating system for modern rental properties.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#16A34A",
+  "background_color": "#FFFFFF",
   "theme_color": "#16A34A",
   "orientation": "portrait",
   "categories": ["business", "finance", "productivity"],
