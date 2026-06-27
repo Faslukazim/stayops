@@ -318,6 +318,10 @@ function OrgCard({ org, onApprove, onReject, onBan, busy, onToast }) {
             <p className="text-sm font-bold text-ink">{org.org_name}</p>
             {org.banned  && <span className="text-[10px] font-bold text-coral bg-coral/10 rounded-full px-2 py-0.5">Suspended</span>}
             {isPending   && <span className="text-[10px] font-bold text-amber bg-amber/10 rounded-full px-2 py-0.5">Pending</span>}
+            {org.plan === 'pro'
+              ? <span className="text-[10px] font-bold text-green bg-green/10 rounded-full px-2 py-0.5">Pro</span>
+              : <span className="text-[10px] font-bold text-slate2 bg-border rounded-full px-2 py-0.5">Starter</span>
+            }
           </div>
           <p className="text-xs text-slate2 mt-0.5 truncate">{org.owner_email}</p>
           <div className="flex items-center gap-3 mt-2 flex-wrap">
@@ -476,6 +480,7 @@ function CreateAccountForm({ onCreated, onClose, onToast }) {
   const [propName, setPropName] = useState('');
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
+  const [plan, setPlan]         = useState('starter');
   const [showPass, setShowPass] = useState(false);
   const [busy, setBusy]         = useState(false);
   const [error, setError]       = useState('');
@@ -491,13 +496,13 @@ function CreateAccountForm({ onCreated, onClose, onToast }) {
       const res = await fetch(CREATE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ email: email.trim(), password, org_name: orgName.trim(), property_name: propName.trim() || null }),
+        body: JSON.stringify({ email: email.trim(), password, org_name: orgName.trim(), property_name: propName.trim() || null, plan }),
       });
       let json = {};
       try { json = await res.json(); } catch (_) {}
       if (!res.ok) throw new Error(json.error || `Server error ${res.status}`);
       onToast?.({ message: `Account created for ${email.trim()}`, type: 'success' });
-      onCreated({ email: email.trim(), password, orgName: orgName.trim() });
+      onCreated({ email: email.trim(), password, orgName: orgName.trim(), plan });
     } catch (err) {
       setError(toMsg(err));
     } finally {
@@ -554,6 +559,26 @@ function CreateAccountForm({ onCreated, onClose, onToast }) {
         </button>
       </div>
 
+      <div>
+        <label className="block text-xs font-semibold text-slate2 mb-2">Plan <span className="text-coral">*</span></label>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { value: 'starter', label: 'Starter', sub: '₹799/mo · 1 property' },
+            { value: 'pro',     label: 'Pro',     sub: '₹1,499/mo · Multiple' },
+          ].map(p => (
+            <button key={p.value} type="button" onClick={() => setPlan(p.value)}
+              className={`rounded-xl border px-3 py-2.5 text-left transition-colors ${
+                plan === p.value
+                  ? 'border-green bg-green/5 text-ink'
+                  : 'border-border bg-white text-slate2 hover:border-slate2/40'
+              }`}>
+              <p className="text-xs font-bold">{p.label}</p>
+              <p className="text-[11px] mt-0.5 opacity-70">{p.sub}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <button type="submit" disabled={busy}
         className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-green text-white py-3 text-sm font-bold hover:bg-green-hover transition-colors disabled:opacity-60">
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
@@ -569,7 +594,7 @@ function CredentialsCard({ creds, onClose }) {
   const [copied, setCopied] = useState(false);
   function copyAll() {
     navigator.clipboard.writeText(
-      `NivaOps login\nOrganization: ${creds.orgName}\nEmail: ${creds.email}\nPassword: ${creds.password}\nApp: https://nivaops.vercel.app`
+      `NivaOps login\nOrganization: ${creds.orgName}\nPlan: ${creds.plan === 'pro' ? 'Pro' : 'Starter'}\nEmail: ${creds.email}\nPassword: ${creds.password}\nApp: https://nivaops.vercel.app`
     );
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);

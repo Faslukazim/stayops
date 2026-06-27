@@ -29,7 +29,7 @@ Deno.serve(async (req: Request) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
 
-    const { email, password, org_name, property_name } = await req.json();
+    const { email, password, org_name, property_name, plan } = await req.json();
     if (!email || !password || !org_name) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), { status: 400, headers: corsHeaders });
     }
@@ -40,7 +40,7 @@ Deno.serve(async (req: Request) => {
     if (createErr) throw new Error(createErr.message);
 
     const { data: org, error: orgErr } = await supabaseAdmin
-      .from('organizations').insert({ name: org_name, approved: true }).select().single();
+      .from('organizations').insert({ name: org_name, approved: true, plan: plan === 'pro' ? 'pro' : 'starter' }).select().single();
     if (orgErr) throw new Error(orgErr.message);
 
     const { error: memErr } = await supabaseAdmin
