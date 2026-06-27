@@ -250,11 +250,6 @@ export default function LandingPage({ onShowAuth }) {
             <NivaLogo size={22} />
             <NivaWordmark size="base" />
           </div>
-          <div className="hidden sm:flex items-center gap-6 mr-4">
-            <button onClick={() => scrollTo('features')} className="text-sm text-slate hover:text-charcoal font-medium transition-colors">Features</button>
-            <button onClick={() => scrollTo('pricing')} className="text-sm text-slate hover:text-charcoal font-medium transition-colors">Pricing</button>
-            <a href="mailto:hello@nivaops.com" className="text-sm text-slate hover:text-charcoal font-medium transition-colors">Contact</a>
-          </div>
           <div className="hidden sm:flex items-center gap-2">
             <button onClick={onShowAuth} className="text-sm text-slate font-medium px-4 py-2 rounded-lg hover:bg-surface transition-colors">
               Sign in
@@ -290,15 +285,11 @@ export default function LandingPage({ onShowAuth }) {
             Beds, rent, and finances — managed from anywhere, in minutes.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <div className="flex items-center justify-center">
             <a href={REQUEST_ACCESS_URL} target="_blank" rel="noopener noreferrer"
-              className="w-full sm:w-auto bg-green hover:bg-green-hover text-white font-semibold text-sm px-6 py-3 rounded-lg transition-colors duration-150 text-center">
+              className="bg-green hover:bg-green-hover text-white font-semibold text-sm px-6 py-3 rounded-lg transition-colors duration-150 text-center">
               Request access
             </a>
-            <button onClick={onShowAuth}
-              className="w-full sm:w-auto text-sm text-slate hover:text-charcoal font-medium transition-colors">
-              Sign in →
-            </button>
           </div>
 
           <div className="mt-20 flex justify-center">
@@ -307,23 +298,13 @@ export default function LandingPage({ onShowAuth }) {
         </div>
       </section>
 
-      {/* ── 2. PRODUCT SHOWCASE ─────────────────────────────────────────────── */}
-      <section className="py-24 px-6 bg-light">
-        <div className="max-w-6xl mx-auto">
-          <p className="text-[11px] font-semibold text-muted uppercase tracking-[1.5px] text-center mb-12">
-            The product
-          </p>
-          <BrowserMockup />
-        </div>
-      </section>
-
-      {/* ── 3. CORE WORKFLOWS ───────────────────────────────────────────────── */}
+      {/* ── 2. CORE WORKFLOWS ───────────────────────────────────────────────── */}
       <section id="features" className="py-28 px-6 bg-white">
         <div className="max-w-5xl mx-auto">
 
           <h2 className="text-[38px] sm:text-[48px] font-bold text-charcoal tracking-[-1px] leading-[1.08] text-center mb-20">
-            Everything that matters.{' '}
-            <span className="text-green">Built in.</span>
+            Built for hostel operators.{' '}
+            <span className="text-green">Nothing extra.</span>
           </h2>
 
           <div className="grid sm:grid-cols-2 gap-x-16 gap-y-14">
@@ -426,23 +407,6 @@ export default function LandingPage({ onShowAuth }) {
         </div>
       </section>
 
-      {/* ── 5. CTA ──────────────────────────────────────────────────────────── */}
-      <section className="py-20 px-6 bg-midnight">
-        <div className="max-w-xl mx-auto text-center">
-          <h2 className="text-[36px] sm:text-[48px] font-bold text-white tracking-[-1px] leading-[1.08] mb-8">
-            Your property,{' '}
-            <span className="text-green">finally organised.</span>
-          </h2>
-          <a href={REQUEST_ACCESS_URL} target="_blank" rel="noopener noreferrer"
-            className="bg-green hover:bg-green-hover text-white font-semibold text-base px-8 py-4 rounded-xl transition-colors inline-block">
-            Request access
-          </a>
-          <p className="text-sm text-white/30 mt-5">
-            No spreadsheets. No paper registers. No missed payments.
-          </p>
-        </div>
-      </section>
-
       {/* ── FOOTER ──────────────────────────────────────────────────────────── */}
       <footer className="bg-midnight border-t border-white/[0.06] py-8 px-6">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-5">
@@ -456,7 +420,7 @@ export default function LandingPage({ onShowAuth }) {
           <div className="flex items-center gap-8">
             <button onClick={() => scrollTo('features')} className="text-sm text-white/35 hover:text-white/65 transition-colors">Features</button>
             <button onClick={() => scrollTo('pricing')} className="text-sm text-white/35 hover:text-white/65 transition-colors">Pricing</button>
-            <a href="mailto:hello@nivaops.com" className="text-sm text-white/35 hover:text-white/65 transition-colors">Contact</a>
+            <a href={REQUEST_ACCESS_URL} target="_blank" rel="noopener noreferrer" className="text-sm text-white/35 hover:text-white/65 transition-colors">Contact</a>
           </div>
           <p className="text-xs text-white/25">© 2026 NivaOps</p>
         </div>
