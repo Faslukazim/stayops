@@ -2,58 +2,55 @@
 // Single source of truth for all reusable UI elements.
 // Import from here, never redefine inline.
 
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { Loader2, MessageCircle, CheckCircle2, ChevronDown, LogOut } from 'lucide-react';
 
 // ─── SignOutBtn ───────────────────────────────────────────────────────────────
-// Two-tap sign out: first tap shows "Sure?", second confirms.
-// Reset back to idle if user clicks away.
+// Opens a modal confirmation dialog before signing out.
 
 export function SignOutBtn({ onSignOut, className = '' }) {
-  const [confirm, setConfirm] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    if (!confirm) return;
-    function handleClick(e) {
-      if (ref.current && !ref.current.contains(e.target)) setConfirm(false);
-    }
-    document.addEventListener('mousedown', handleClick);
-    document.addEventListener('touchstart', handleClick);
-    return () => {
-      document.removeEventListener('mousedown', handleClick);
-      document.removeEventListener('touchstart', handleClick);
-    };
-  }, [confirm]);
-
-  if (confirm) {
-    return (
-      <div ref={ref} className="flex items-center gap-1.5">
-        <span className="text-xs font-semibold text-ink">Sign out?</span>
-        <button
-          onClick={onSignOut}
-          className="rounded-lg bg-coral text-white px-2.5 py-1 text-xs font-bold hover:bg-coral/90 transition-colors"
-        >
-          Yes
-        </button>
-        <button
-          onClick={() => setConfirm(false)}
-          className="rounded-lg bg-mist border border-border px-2.5 py-1 text-xs font-semibold text-slate2 hover:text-ink transition-colors"
-        >
-          No
-        </button>
-      </div>
-    );
-  }
+  const [open, setOpen] = useState(false);
 
   return (
-    <button
-      onClick={() => setConfirm(true)}
-      className={`flex items-center gap-1.5 text-xs font-semibold text-slate2 hover:text-ink transition-colors ${className}`}
-    >
-      <LogOut className="h-3.5 w-3.5" />
-      Sign out
-    </button>
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className={`flex items-center gap-1.5 text-xs font-semibold text-slate2 hover:text-ink transition-colors ${className}`}
+      >
+        <LogOut className="h-3.5 w-3.5" />
+        Sign out
+      </button>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center px-4"
+          style={{ background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="w-full max-w-xs rounded-2xl bg-white border border-border shadow-xl p-6"
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 className="text-base font-bold text-ink text-center">Sign out?</h2>
+            <p className="mt-1.5 text-sm text-slate2 text-center">You'll need to sign in again to access your workspace.</p>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setOpen(false)}
+                className="flex-1 rounded-lg border border-border py-2.5 text-sm font-semibold text-slate2 hover:bg-mist transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setOpen(false); onSignOut(); }}
+                className="flex-1 rounded-lg bg-coral py-2.5 text-sm font-bold text-white hover:bg-coral/90 transition-colors"
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { signIn } from './services/authService';
 import { NivaLogo, NivaWordmark } from './components/NivaLogo';
-import { Check, Home, Users, IndianRupee, BarChart2, Loader2, Menu, X } from 'lucide-react';
+import { Check, Home, Users, IndianRupee, BarChart2, Menu, X } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PHONE MOCKUP
@@ -231,37 +230,36 @@ function BrowserMockup() {
 // PAGE
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function LandingPage({ onShowAuth }) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [demoLoading, setDemoLoading] = useState(false);
-  const [demoError, setDemoError] = useState('');
+function scrollTo(id) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+}
 
-  async function tryDemo() {
-    setDemoLoading(true);
-    setDemoError('');
-    try {
-      await signIn('demo@stayops.com', 'demo2026');
-    } catch {
-      setDemoError('Demo unavailable. Try again in a moment.');
-      setDemoLoading(false);
-    }
-  }
+export default function LandingPage({ onShowAuth, onShowSignUp }) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const handleGetStarted = onShowSignUp ?? onShowAuth;
 
   return (
     <div className="min-h-screen bg-white">
 
       {/* NAV */}
-      <nav className="fixed top-0 inset-x-0 z-50 bg-white/80 backdrop-blur-xl border-b border-border">
+      <nav className="fixed top-0 inset-x-0 z-50 bg-white/80 backdrop-blur-xl border-b border-border"
+        style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}>
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <NivaLogo size={22} />
             <NivaWordmark size="base" />
           </div>
+          <div className="hidden sm:flex items-center gap-6 mr-4">
+            <button onClick={() => scrollTo('features')} className="text-sm text-slate hover:text-charcoal font-medium transition-colors">Features</button>
+            <button onClick={() => scrollTo('pricing')} className="text-sm text-slate hover:text-charcoal font-medium transition-colors">Pricing</button>
+            <a href="mailto:hello@nivaops.com" className="text-sm text-slate hover:text-charcoal font-medium transition-colors">Contact</a>
+          </div>
           <div className="hidden sm:flex items-center gap-2">
             <button onClick={onShowAuth} className="text-sm text-slate font-medium px-4 py-2 rounded-lg hover:bg-surface transition-colors">
               Sign in
             </button>
-            <button onClick={onShowAuth} className="text-sm text-white font-semibold px-4 py-2 rounded-lg bg-green hover:bg-green-hover transition-colors">
+            <button onClick={handleGetStarted} className="text-sm text-white font-semibold px-4 py-2 rounded-lg bg-green hover:bg-green-hover transition-colors">
               Get started free
             </button>
           </div>
@@ -272,7 +270,7 @@ export default function LandingPage({ onShowAuth }) {
         {mobileMenuOpen && (
           <div className="sm:hidden bg-white border-t border-border px-5 pb-5 pt-3 space-y-2">
             <button onClick={onShowAuth} className="w-full py-2.5 border border-border rounded-lg text-sm font-semibold text-charcoal">Sign in</button>
-            <button onClick={onShowAuth} className="w-full py-2.5 bg-green hover:bg-green-hover rounded-lg text-sm font-semibold text-white transition-colors">Get started free</button>
+            <button onClick={handleGetStarted} className="w-full py-2.5 bg-green hover:bg-green-hover rounded-lg text-sm font-semibold text-white transition-colors">Get started free</button>
           </div>
         )}
       </nav>
@@ -291,18 +289,15 @@ export default function LandingPage({ onShowAuth }) {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-            <button onClick={onShowAuth}
+            <button onClick={handleGetStarted}
               className="w-full sm:w-auto bg-green hover:bg-green-hover text-white font-semibold text-sm px-6 py-3 rounded-lg transition-colors duration-150">
               Get started free
             </button>
-            <button onClick={tryDemo} disabled={demoLoading}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 text-sm text-slate hover:text-charcoal font-medium transition-colors">
-              {demoLoading ? <Loader2 size={13} className="animate-spin" /> : null}
-              Try live demo →
+            <button onClick={onShowAuth}
+              className="w-full sm:w-auto text-sm text-slate hover:text-charcoal font-medium transition-colors">
+              Sign in →
             </button>
           </div>
-
-          {demoError && <p className="text-error text-sm mt-4">{demoError}</p>}
 
           <div className="mt-20 flex justify-center">
             <PhoneMockup />
@@ -321,7 +316,7 @@ export default function LandingPage({ onShowAuth }) {
       </section>
 
       {/* ── 3. CORE WORKFLOWS ───────────────────────────────────────────────── */}
-      <section className="py-28 px-6 bg-white">
+      <section id="features" className="py-28 px-6 bg-white">
         <div className="max-w-5xl mx-auto">
 
           <h2 className="text-[38px] sm:text-[48px] font-bold text-charcoal tracking-[-1px] leading-[1.08] text-center mb-20">
@@ -368,7 +363,7 @@ export default function LandingPage({ onShowAuth }) {
       </section>
 
       {/* ── 4. PRICING ──────────────────────────────────────────────────────── */}
-      <section className="py-28 px-6 bg-light">
+      <section id="pricing" className="py-28 px-6 bg-light">
         <div className="max-w-3xl mx-auto">
 
           <div className="text-center mb-16">
@@ -397,7 +392,7 @@ export default function LandingPage({ onShowAuth }) {
                   </li>
                 ))}
               </ul>
-              <button onClick={onShowAuth}
+              <button onClick={handleGetStarted}
                 className="mt-8 w-full py-3 border border-border rounded-xl text-sm font-semibold text-charcoal hover:bg-surface transition-colors">
                 Get started free
               </button>
@@ -423,7 +418,7 @@ export default function LandingPage({ onShowAuth }) {
                   </li>
                 ))}
               </ul>
-              <button onClick={onShowAuth}
+              <button onClick={handleGetStarted}
                 className="mt-8 w-full py-3 bg-green hover:bg-green-hover rounded-xl text-sm font-semibold text-white transition-colors">
                 Get started free
               </button>
@@ -435,17 +430,17 @@ export default function LandingPage({ onShowAuth }) {
       </section>
 
       {/* ── 5. CTA ──────────────────────────────────────────────────────────── */}
-      <section className="py-28 px-6 bg-midnight">
+      <section className="py-20 px-6 bg-midnight">
         <div className="max-w-xl mx-auto text-center">
-          <h2 className="text-[36px] sm:text-[48px] font-bold text-white tracking-[-1px] leading-[1.08] mb-10">
+          <h2 className="text-[36px] sm:text-[48px] font-bold text-white tracking-[-1px] leading-[1.08] mb-8">
             Your property,{' '}
             <span className="text-green">finally organised.</span>
           </h2>
-          <button onClick={onShowAuth}
+          <button onClick={handleGetStarted}
             className="bg-green hover:bg-green-hover text-white font-semibold text-base px-8 py-4 rounded-xl transition-colors">
             Get started free
           </button>
-          <p className="text-sm text-white/30 mt-6">
+          <p className="text-sm text-white/30 mt-5">
             No spreadsheets. No paper registers. No missed payments.
           </p>
         </div>
@@ -462,11 +457,11 @@ export default function LandingPage({ onShowAuth }) {
             <p className="text-white/25 text-xs">Run properties smarter.</p>
           </div>
           <div className="flex items-center gap-8">
-            {['Features', 'Pricing', 'Contact'].map(l => (
-              <button key={l} onClick={onShowAuth} className="text-sm text-white/35 hover:text-white/65 transition-colors">{l}</button>
-            ))}
+            <button onClick={() => scrollTo('features')} className="text-sm text-white/35 hover:text-white/65 transition-colors">Features</button>
+            <button onClick={() => scrollTo('pricing')} className="text-sm text-white/35 hover:text-white/65 transition-colors">Pricing</button>
+            <a href="mailto:hello@nivaops.com" className="text-sm text-white/35 hover:text-white/65 transition-colors">Contact</a>
           </div>
-          <p className="text-xs text-white/25">© 2025 NivaOps</p>
+          <p className="text-xs text-white/25">© 2026 NivaOps</p>
         </div>
       </footer>
 

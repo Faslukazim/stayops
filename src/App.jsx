@@ -331,8 +331,15 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
     finally { setGuestSaving(false); }
   }
 
+  const BLOCKED_NAMES = ['test', 'demo', 'sample', 'john doe', 'jane doe', 'tenant', 'example', 'dummy', 'fake', 'abc', 'xyz'];
+
   async function handleSubmit(e) {
     e.preventDefault();
+    const nameLower = form.name.trim().toLowerCase();
+    if (BLOCKED_NAMES.some(b => nameLower === b || nameLower.startsWith(b + ' '))) {
+      setPhoneError('Please enter the tenant\'s real name.');
+      return;
+    }
     if (!isValidPhone(form.phone)) {
       setPhoneError('Enter a valid 10-digit Indian mobile number (e.g. 9876543210)');
       return;
@@ -1200,14 +1207,13 @@ function AttentionRequired({ tenants, upiId, onMarkPaid, onViewTenant }) {
 }
 
 // ─── dashboard: quick actions ─────────────────────────────────────────────────
-// The four things an operator actually does, one tap away.
 
 function QuickActions({ onAssignTenant, onAddTenant, onOpenRooms, onOpenFinance }) {
   const actions = [
-    { label: 'Assign Tenant', icon: UserPlus,  onClick: onAssignTenant },
-    { label: 'Add Tenant',    icon: Plus,      onClick: onAddTenant },
-    { label: 'Open Rooms',    icon: BedDouble, onClick: onOpenRooms },
-    { label: 'Finance',       icon: BarChart2, onClick: onOpenFinance },
+    { label: 'Assign Tenant', sub: 'Move into a vacant bed', icon: UserPlus,  onClick: onAssignTenant },
+    { label: 'Add Tenant',    sub: 'Register a new resident', icon: Plus,      onClick: onAddTenant },
+    { label: 'Rooms',         sub: 'View beds & occupancy',  icon: BedDouble, onClick: onOpenRooms },
+    { label: 'Finance',       sub: 'Expenses, P&L, cashflow',icon: BarChart2, onClick: onOpenFinance },
   ];
 
   return (
@@ -1222,7 +1228,10 @@ function QuickActions({ onAssignTenant, onAddTenant, onOpenRooms, onOpenFinance 
           <div className="rounded-lg bg-mist p-2.5">
             <a.icon className="h-5 w-5 text-ink" />
           </div>
-          <span className="text-sm font-semibold text-ink leading-tight">{a.label}</span>
+          <div>
+            <p className="text-sm font-semibold text-ink leading-tight">{a.label}</p>
+            <p className="text-xs text-slate2 mt-0.5 leading-tight">{a.sub}</p>
+          </div>
         </button>
       ))}
     </div>
@@ -1262,10 +1271,12 @@ function RecentActivity({ propertyId }) {
       <SectionHeader title="Recent Activity" />
       <div className="divide-y divide-border">
         {events.map(e => (
-          <div key={e.id} className="flex items-center gap-3 px-4 py-2.5">
-            <span className={`h-2 w-2 rounded-full shrink-0 ${ACTIVITY_DOT[e.type] ?? 'bg-slate2/40'}`} />
-            <p className="text-sm text-ink flex-1 min-w-0 truncate">{e.description}</p>
-            <p className="text-[11px] text-slate2 shrink-0 tabular-nums">{relativeTime(e.at)}</p>
+          <div key={e.id} className="flex items-start gap-3 px-4 py-3">
+            <span className={`mt-1.5 h-2 w-2 rounded-full shrink-0 ${ACTIVITY_DOT[e.type] ?? 'bg-slate2/40'}`} />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-ink">{e.description}</p>
+              <p className="text-[11px] text-slate2 mt-0.5">{relativeTime(e.at)}</p>
+            </div>
           </div>
         ))}
       </div>
@@ -1358,18 +1369,18 @@ function DashboardPage({ tenants, totalBeds, selectedPropertyId, upiId, pendingD
   return (
     <div className="flex flex-col gap-4">
       <BusinessHealth tenants={tenants} totalBeds={totalBeds} />
-      <AttentionRequired tenants={tenants} upiId={upiId} onMarkPaid={onMarkPaid} onViewTenant={onViewTenant} />
-      <PendingBookings bookings={pendingBookings ?? []} onConvertBooking={onConvertBooking} onGoToRooms={onGoToRooms} />
-      <DepositsToReview tenants={pendingDeposits} onReturnDeposit={onReturnDeposit} onForfeitDeposit={onForfeitDeposit} />
-      <MovedOutThisMonth tenants={movedOutThisMonth} />
-      <MoveInHealth tenants={tenants} />
-      <FinancialHealth selectedPropertyId={selectedPropertyId} totalBeds={totalBeds} tenants={tenants} />
       <QuickActions
         onAssignTenant={onAssignTenant}
         onAddTenant={onAddTenant}
         onOpenRooms={onGoToRooms}
         onOpenFinance={onGoToFinance}
       />
+      <AttentionRequired tenants={tenants} upiId={upiId} onMarkPaid={onMarkPaid} onViewTenant={onViewTenant} />
+      <PendingBookings bookings={pendingBookings ?? []} onConvertBooking={onConvertBooking} onGoToRooms={onGoToRooms} />
+      <DepositsToReview tenants={pendingDeposits} onReturnDeposit={onReturnDeposit} onForfeitDeposit={onForfeitDeposit} />
+      <MovedOutThisMonth tenants={movedOutThisMonth} />
+      <MoveInHealth tenants={tenants} />
+      <FinancialHealth selectedPropertyId={selectedPropertyId} totalBeds={totalBeds} tenants={tenants} />
       <RecentActivity propertyId={selectedPropertyId} />
     </div>
   );
@@ -2079,9 +2090,6 @@ export default function App({ session, organizationName, onSignOut, isAdmin, onO
                     navigateTo('tenants');
                   }}
                 />
-                <div className="mt-4">
-                  <UpiSettings propertyId={selectedPropertyId} upiId={upiId} onSave={handleSaveUpi} />
-                </div>
               </div>
               <div className={page !== 'rooms' ? 'hidden' : enteringPage === 'rooms' ? 'page-enter' : undefined}>
                 {mountedPages.has('rooms') && (
@@ -2122,7 +2130,12 @@ export default function App({ session, organizationName, onSignOut, isAdmin, onO
               </div>
               <div className={page !== 'finance' ? 'hidden' : enteringPage === 'finance' ? 'page-enter' : undefined}>
                 {mountedPages.has('finance') && (
-                  <FinancePage selectedPropertyId={selectedPropertyId} organizationId={properties.find(p => p.id === selectedPropertyId)?.organization_id} tenants={tenants} onViewTenant={setViewingTenantId} upiId={upiId} />
+                  <>
+                    <FinancePage selectedPropertyId={selectedPropertyId} organizationId={properties.find(p => p.id === selectedPropertyId)?.organization_id} tenants={tenants} onViewTenant={setViewingTenantId} upiId={upiId} />
+                    <div className="mt-4">
+                      <UpiSettings propertyId={selectedPropertyId} upiId={upiId} onSave={handleSaveUpi} />
+                    </div>
+                  </>
                 )}
               </div>
             </>
