@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   Loader2, CheckCircle2, Trash2, RefreshCw, LayoutDashboard,
   Plus, X, Eye, EyeOff, Copy, Check, ChevronDown, ChevronUp,
-  Ban, ShieldCheck, KeyRound, Building2, Users, BedDouble, Clock, AlertCircle,
+  Ban, ShieldCheck, KeyRound, Building2, Users, BedDouble, Clock, AlertCircle, Sparkles,
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { SignOutBtn } from './components/ui';
@@ -268,12 +268,13 @@ function PasswordResetPanel({ userId, ownerEmail, onClose, onPasswordSaved, onTo
 
 // ── OrgCard ───────────────────────────────────────────────────────────────────
 
-function OrgCard({ org, onApprove, onReject, onBan, busy, onToast }) {
+function OrgCard({ org, onApprove, onReject, onBan, onPlanChange, busy, onToast }) {
   const [open, setOpen]             = useState(false);
   const [showReset, setShowReset]   = useState(false);
   const [showCreds, setShowCreds]   = useState(false);
   const [banConfirm, setBanConfirm] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [planConfirm, setPlanConfirm]     = useState(false);
   const [localEmail, setLocalEmail]       = useState(org.last_email);
   const [localPassword, setLocalPassword] = useState(org.last_password);
 
@@ -285,19 +286,22 @@ function OrgCard({ org, onApprove, onReject, onBan, busy, onToast }) {
     setShowCreds(false);
     setBanConfirm(false);
     setDeleteConfirm(false);
+    setPlanConfirm(false);
   }
 
   function toggleSection(section) {
     const isOpen = (section === 'reset'  && showReset)
                 || (section === 'creds'  && showCreds)
                 || (section === 'ban'    && banConfirm)
-                || (section === 'delete' && deleteConfirm);
+                || (section === 'delete' && deleteConfirm)
+                || (section === 'plan'   && planConfirm);
     closeActions();
     if (!isOpen) {
       if (section === 'reset')  setShowReset(true);
       if (section === 'creds')  setShowCreds(true);
       if (section === 'ban')    setBanConfirm(true);
       if (section === 'delete') setDeleteConfirm(true);
+      if (section === 'plan')   setPlanConfirm(true);
     }
   }
 
@@ -370,13 +374,23 @@ function OrgCard({ org, onApprove, onReject, onBan, busy, onToast }) {
           {/* Action bar */}
           <div className="flex items-center gap-1 px-4 py-2.5 bg-mist/60 flex-wrap">
             <button onClick={() => toggleSection('creds')}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${showCreds ? 'bg-midnight text-white' : 'bg-white border border-border text-slate2 hover:bg-light'}`}>
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${showCreds ? 'bg-ink text-white' : 'bg-white border border-border text-slate2 hover:bg-mist'}`}>
               <Eye className="h-3.5 w-3.5" />
               {localPassword ? 'View password' : 'Save password'}
             </button>
             <button onClick={() => toggleSection('reset')}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${showReset ? 'bg-midnight text-white' : 'bg-white border border-border text-ink hover:bg-light'}`}>
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${showReset ? 'bg-ink text-white' : 'bg-white border border-border text-ink hover:bg-mist'}`}>
               <KeyRound className="h-3.5 w-3.5" /> Reset password
+            </button>
+            <button onClick={() => toggleSection('plan')}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                planConfirm ? 'bg-ink text-white'
+                : org.plan === 'pro'
+                  ? 'bg-white border border-border text-slate2 hover:bg-mist'
+                  : 'bg-white border border-border text-slate2 hover:bg-mist'
+              }`}>
+              <Sparkles className="h-3.5 w-3.5" />
+              {org.plan === 'pro' ? 'Downgrade' : 'Upgrade'}
             </button>
             <button onClick={() => toggleSection('ban')}
               className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${
@@ -387,8 +401,9 @@ function OrgCard({ org, onApprove, onReject, onBan, busy, onToast }) {
               {org.banned ? <ShieldCheck className="h-3.5 w-3.5" /> : <Ban className="h-3.5 w-3.5" />}
               {org.banned ? 'Unsuspend' : 'Suspend'}
             </button>
+            <div className="flex-1" />
             <button onClick={() => toggleSection('delete')}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${deleteConfirm ? 'bg-coral text-white' : 'bg-white border border-border text-slate2 hover:border-coral/40 hover:text-coral'}`}>
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${deleteConfirm ? 'bg-coral text-white' : 'border border-coral/30 text-coral hover:bg-coral/5'}`}>
               <Trash2 className="h-3.5 w-3.5" /> Delete
             </button>
           </div>
@@ -415,6 +430,31 @@ function OrgCard({ org, onApprove, onReject, onBan, busy, onToast }) {
                 onPasswordSaved={p => { setLocalPassword(p); setLocalEmail(org.owner_email); }}
                 onToast={onToast}
               />
+            )}
+
+            {planConfirm && (
+              <div className="rounded-xl border border-border bg-white p-4">
+                <p className="text-sm font-semibold text-ink mb-1">
+                  {org.plan === 'pro' ? 'Downgrade to Starter?' : 'Upgrade to Pro?'}
+                </p>
+                <p className="text-xs text-slate2 mb-3">
+                  {org.plan === 'pro'
+                    ? 'This account will be limited to 1 property. Extra properties will remain but the owner can\'t add new ones.'
+                    : 'This account can manage multiple properties.'}
+                </p>
+                <div className="flex gap-2">
+                  <button onClick={() => { setPlanConfirm(false); onPlanChange(org.org_id, org.plan === 'pro' ? 'starter' : 'pro'); }}
+                    disabled={isBusy}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-ink text-white px-3 py-1.5 text-xs font-bold hover:bg-ink/80 transition-colors disabled:opacity-60">
+                    {isBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                    {org.plan === 'pro' ? 'Downgrade' : 'Upgrade to Pro'}
+                  </button>
+                  <button onClick={() => setPlanConfirm(false)}
+                    className="inline-flex items-center rounded-xl border border-border bg-white px-3 py-1.5 text-xs font-semibold text-slate2 hover:bg-mist transition-colors">
+                    Cancel
+                  </button>
+                </div>
+              </div>
             )}
 
             {banConfirm && (
@@ -461,7 +501,7 @@ function OrgCard({ org, onApprove, onReject, onBan, busy, onToast }) {
               </div>
             )}
 
-            {!showCreds && !showReset && !banConfirm && !deleteConfirm && (
+            {!showCreds && !showReset && !banConfirm && !deleteConfirm && !planConfirm && (
               <p className="text-xs text-slate2">
                 Joined {new Date(org.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
               </p>
@@ -682,6 +722,15 @@ export default function AdminPage({ onSignOut, onOpenApp }) {
     toast({ message: banned ? 'Account suspended' : 'Account unsuspended', type: 'success' });
   }
 
+  async function changePlan(org_id, newPlan) {
+    setBusy(org_id);
+    const { error } = await supabase.from('organizations').update({ plan: newPlan }).eq('id', org_id);
+    if (error) toast({ message: `Failed: ${toMsg(error)}`, type: 'error' });
+    else toast({ message: `Plan changed to ${newPlan === 'pro' ? 'Pro' : 'Starter'}`, type: 'success' });
+    await load();
+    setBusy(null);
+  }
+
   function handleCreated(newCreds) {
     setShowCreate(false);
     setCreds(newCreds);
@@ -745,7 +794,7 @@ export default function AdminPage({ onSignOut, onOpenApp }) {
             {loading
               ? <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-slate2" /></div>
               : <div className="flex flex-col gap-2">
-                  {pending.map(o => <OrgCard key={o.org_id} org={o} busy={busy} onApprove={approve} onReject={reject} onBan={ban} onToast={toast} />)}
+                  {pending.map(o => <OrgCard key={o.org_id} org={o} busy={busy} onApprove={approve} onReject={reject} onBan={ban} onPlanChange={changePlan} onToast={toast} />)}
                 </div>
             }
           </section>
@@ -761,7 +810,7 @@ export default function AdminPage({ onSignOut, onOpenApp }) {
             : approved.length === 0
               ? <div className="rounded-2xl bg-white border border-border px-5 py-8 text-center text-sm text-slate2">No active accounts yet</div>
               : <div className="flex flex-col gap-2">
-                  {approved.map(o => <OrgCard key={o.org_id} org={o} busy={busy} onApprove={approve} onReject={reject} onBan={ban} onToast={toast} />)}
+                  {approved.map(o => <OrgCard key={o.org_id} org={o} busy={busy} onApprove={approve} onReject={reject} onBan={ban} onPlanChange={changePlan} onToast={toast} />)}
                 </div>
           }
         </section>
