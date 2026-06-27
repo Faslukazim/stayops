@@ -10,6 +10,16 @@ export async function fetchProperties() {
   return data;
 }
 
+export async function createProperty(organizationId, name) {
+  const { data, error } = await supabase
+    .from('properties')
+    .insert({ name: name.trim(), organization_id: organizationId, status: 'active' })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function createRoom(propertyId, { roomNumber, beds }) {
   const { data: room, error: roomErr } = await supabase
     .from('rooms')

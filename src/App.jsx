@@ -8,7 +8,7 @@ import { createTenant, deleteTenant, vacateTenant, fetchTenants, fetchVacatedTen
 import { addIncomeRecord, uploadIdPhoto, saveTenantIdPhoto } from './services/incomeService';
 import { markTenantRecordPaid } from './services/paymentService';
 import { logActivity, fetchRecentActivity } from './services/activityService';
-import { fetchProperties, fetchRoomsWithBeds, updatePropertyUpiId } from './services/propertyService';
+import { fetchProperties, fetchRoomsWithBeds, updatePropertyUpiId, createProperty } from './services/propertyService';
 import { readExpensesSync } from './services/financeService';
 import { seedSampleWorkspace, clearSampleWorkspace } from './services/seedService';
 import { fetchBookings, convertBooking } from './services/bookingService';
@@ -27,7 +27,7 @@ import {
 
 
 
-function PropertyPill({ properties, selectedId, onChange, loading }) {
+function PropertyPill({ properties, selectedId, onChange, loading, canAddProperty, onAddProperty }) {
   if (loading) {
     return (
       <div className="flex items-center gap-1.5 text-xs text-slate2">
@@ -36,17 +36,82 @@ function PropertyPill({ properties, selectedId, onChange, loading }) {
     );
   }
   return (
-    <div className="relative">
-      <select
-        value={selectedId}
-        onChange={e => onChange(e.target.value)}
-        className="appearance-none rounded-lg bg-mist pl-3 pr-7 py-1.5 text-sm font-semibold text-ink border border-border focus:outline-none focus:ring-2 focus:ring-ink/20 cursor-pointer"
-      >
-        {properties.map(p => (
-          <option key={p.id} value={p.id}>{p.name}</option>
-        ))}
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate2" />
+    <div className="flex items-center gap-1.5">
+      {properties.length > 0 && (
+        <div className="relative">
+          <select
+            value={selectedId}
+            onChange={e => onChange(e.target.value)}
+            className="appearance-none rounded-lg bg-mist pl-3 pr-7 py-1.5 text-sm font-semibold text-ink border border-border focus:outline-none focus:ring-2 focus:ring-ink/20 cursor-pointer"
+          >
+            {properties.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate2" />
+        </div>
+      )}
+      {canAddProperty && (
+        <button
+          type="button"
+          onClick={onAddProperty}
+          title="Add property"
+          className="inline-flex items-center justify-center rounded-lg bg-mist border border-border p-1.5 text-slate2 hover:bg-border hover:text-ink transition-colors"
+        >
+          <Plus className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function AddPropertyModal({ organizationId, onCreated, onClose }) {
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setBusy(true);
+    setError('');
+    try {
+      const prop = await createProperty(organizationId, name);
+      onCreated(prop);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center px-4"
+      style={{ background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}>
+      <div className="w-full max-w-xs rounded-2xl bg-white border border-border shadow-xl p-6"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-bold text-ink">Add property</h2>
+          <button onClick={onClose} className="text-slate2 hover:text-ink"><X className="h-4 w-4" /></button>
+        </div>
+        {error && <p className="text-xs text-coral mb-3">{error}</p>}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <input
+            autoFocus
+            type="text"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            placeholder="Property name"
+            className="w-full rounded-xl border border-border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green/30 focus:border-green"
+          />
+          <button type="submit" disabled={busy || !name.trim()}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-green text-white py-2.5 text-sm font-bold hover:bg-green-hover transition-colors disabled:opacity-50">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Create property
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
@@ -62,7 +127,7 @@ function AppLogo() {
   );
 }
 
-function Header({ properties, selectedPropertyId, onPropertyChange, loadingProperties, onSignOut, isAdmin, onOpenAdmin }) {
+function Header({ properties, selectedPropertyId, onPropertyChange, loadingProperties, onSignOut, isAdmin, onOpenAdmin, canAddProperty, onAddProperty }) {
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-border px-4 py-3 sm:px-6" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}>
       <div className="mx-auto max-w-5xl">
@@ -74,6 +139,8 @@ function Header({ properties, selectedPropertyId, onPropertyChange, loadingPrope
               selectedId={selectedPropertyId}
               onChange={onPropertyChange}
               loading={loadingProperties}
+              canAddProperty={canAddProperty}
+              onAddProperty={onAddProperty}
             />
             {isAdmin && (
               <button
@@ -1627,7 +1694,7 @@ function EmptyWorkspace({ onSeed, seeding }) {
 
 // ─── root ────────────────────────────────────────────────────────────────────
 
-export default function App({ session, organizationName, onSignOut, isAdmin, onOpenAdmin } = {}) {
+export default function App({ session, organizationName, plan = 'starter', onSignOut, isAdmin, onOpenAdmin } = {}) {
   const [page, setPage] = useState(() => {
     const saved = localStorage.getItem('stayops_page');
     // 'payments' is now 'finance' — migrate old saved value
@@ -1660,6 +1727,9 @@ export default function App({ session, organizationName, onSignOut, isAdmin, onO
   const [pendingDeposits, setPendingDeposits] = useState([]);
   const [movedOutThisMonth, setMovedOutThisMonth] = useState([]);
   const [pendingBookings, setPendingBookings] = useState([]);
+  const [showAddProperty, setShowAddProperty] = useState(false);
+
+  const canAddProperty = plan === 'pro' || properties.length === 0;
 
   const viewingTenant = viewingTenantId ? tenants.find(t => t.id === viewingTenantId) ?? null : null;
 
@@ -2019,6 +2089,16 @@ export default function App({ session, organizationName, onSignOut, isAdmin, onO
           </div>
         </div>
       )}
+      {showAddProperty && (
+        <AddPropertyModal
+          organizationId={properties[0]?.organization_id ?? null}
+          onCreated={prop => {
+            setShowAddProperty(false);
+            loadProperties().then(() => setSelectedPropertyId(prop.id));
+          }}
+          onClose={() => setShowAddProperty(false)}
+        />
+      )}
       <Header
         properties={properties}
         selectedPropertyId={selectedPropertyId}
@@ -2027,6 +2107,8 @@ export default function App({ session, organizationName, onSignOut, isAdmin, onO
         onSignOut={onSignOut}
         isAdmin={isAdmin}
         onOpenAdmin={onOpenAdmin}
+        canAddProperty={canAddProperty}
+        onAddProperty={() => setShowAddProperty(true)}
       />
       <TopNav active={page} onChange={navigateTo} bookingCount={pendingBookings.length} />
 
