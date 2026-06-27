@@ -8,7 +8,7 @@ import { createTenant, deleteTenant, vacateTenant, fetchTenants, fetchVacatedTen
 import { addIncomeRecord, uploadIdPhoto, saveTenantIdPhoto } from './services/incomeService';
 import { markTenantRecordPaid } from './services/paymentService';
 import { logActivity, fetchRecentActivity } from './services/activityService';
-import { fetchProperties, fetchRoomsWithBeds, updatePropertyUpiId, createProperty } from './services/propertyService';
+import { fetchProperties, fetchRoomsWithBeds, updatePropertyUpiId, createProperty, deleteProperty } from './services/propertyService';
 import { readExpensesSync } from './services/financeService';
 import { seedSampleWorkspace, clearSampleWorkspace } from './services/seedService';
 import { fetchBookings, convertBooking } from './services/bookingService';
@@ -27,7 +27,36 @@ import {
 
 
 
-function PropertyPill({ properties, selectedId, onChange, loading, canAddProperty, onAddProperty }) {
+function DeletePropertyModal({ propertyName, onConfirm, onClose, busy }) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center px-4"
+      style={{ background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}>
+      <div className="w-full max-w-xs rounded-2xl bg-white border border-border shadow-xl p-6"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-3 mb-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-coral/10">
+            <Trash2 className="h-4 w-4 text-coral" />
+          </div>
+          <h2 className="text-sm font-bold text-ink">Delete "{propertyName}"?</h2>
+        </div>
+        <p className="text-sm text-slate2 mb-5">All rooms, beds, tenants, and payments for this property will be hidden. This cannot be undone easily.</p>
+        <div className="flex gap-2">
+          <button onClick={onClose} className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold text-slate2 hover:bg-mist transition-colors">
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={busy}
+            className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-coral text-white py-2.5 text-sm font-bold hover:bg-coral/90 transition-colors disabled:opacity-50">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PropertyPill({ properties, selectedId, onChange, loading, canAddProperty, onAddProperty, onDeleteProperty }) {
   if (loading) {
     return (
       <div className="flex items-center gap-1.5 text-xs text-slate2">
@@ -59,6 +88,16 @@ function PropertyPill({ properties, selectedId, onChange, loading, canAddPropert
           className="inline-flex items-center justify-center rounded-lg bg-mist border border-border p-1.5 text-slate2 hover:bg-border hover:text-ink transition-colors"
         >
           <Plus className="h-3.5 w-3.5" />
+        </button>
+      )}
+      {selectedId && properties.length > 0 && (
+        <button
+          type="button"
+          onClick={onDeleteProperty}
+          title="Delete property"
+          className="inline-flex items-center justify-center rounded-lg bg-mist border border-border p-1.5 text-slate2 hover:bg-coral/10 hover:border-coral/30 hover:text-coral transition-colors"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
         </button>
       )}
     </div>
@@ -127,7 +166,7 @@ function AppLogo() {
   );
 }
 
-function Header({ properties, selectedPropertyId, onPropertyChange, loadingProperties, onSignOut, isAdmin, onOpenAdmin, canAddProperty, onAddProperty }) {
+function Header({ properties, selectedPropertyId, onPropertyChange, loadingProperties, onSignOut, isAdmin, onOpenAdmin, canAddProperty, onAddProperty, onDeleteProperty }) {
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-border px-4 py-3 sm:px-6" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}>
       <div className="mx-auto max-w-5xl">
@@ -141,6 +180,7 @@ function Header({ properties, selectedPropertyId, onPropertyChange, loadingPrope
               loading={loadingProperties}
               canAddProperty={canAddProperty}
               onAddProperty={onAddProperty}
+              onDeleteProperty={onDeleteProperty}
             />
             {isAdmin && (
               <button
@@ -1809,6 +1849,8 @@ export default function App({ session, organizationName, organizationId: orgIdPr
   const [movedOutThisMonth, setMovedOutThisMonth] = useState([]);
   const [pendingBookings, setPendingBookings] = useState([]);
   const [showAddProperty, setShowAddProperty] = useState(false);
+  const [showDeleteProperty, setShowDeleteProperty] = useState(false);
+  const [deletingProperty, setDeletingProperty] = useState(false);
 
   const canAddProperty = plan === 'pro' || properties.length === 0;
 
@@ -2175,6 +2217,25 @@ export default function App({ session, organizationName, organizationId: orgIdPr
           </div>
         </div>
       )}
+      {showDeleteProperty && (
+        <DeletePropertyModal
+          propertyName={properties.find(p => p.id === selectedPropertyId)?.name ?? 'this property'}
+          busy={deletingProperty}
+          onClose={() => setShowDeleteProperty(false)}
+          onConfirm={async () => {
+            setDeletingProperty(true);
+            try {
+              await deleteProperty(selectedPropertyId);
+              setShowDeleteProperty(false);
+              await loadProperties();
+            } catch (e) {
+              toast.error(e.message);
+            } finally {
+              setDeletingProperty(false);
+            }
+          }}
+        />
+      )}
       {showAddProperty && (
         <AddPropertyModal
           organizationId={properties[0]?.organization_id ?? orgIdProp ?? null}
@@ -2195,6 +2256,7 @@ export default function App({ session, organizationName, organizationId: orgIdPr
         onOpenAdmin={onOpenAdmin}
         canAddProperty={canAddProperty}
         onAddProperty={() => setShowAddProperty(true)}
+        onDeleteProperty={() => setShowDeleteProperty(true)}
       />
       <TopNav active={page} onChange={navigateTo} bookingCount={pendingBookings.length} />
 

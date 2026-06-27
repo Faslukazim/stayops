@@ -10,6 +10,14 @@ export async function fetchProperties() {
   return data;
 }
 
+export async function deleteProperty(propertyId) {
+  const { error } = await supabase
+    .from('properties')
+    .update({ status: 'inactive' })
+    .eq('id', propertyId);
+  if (error) throw error;
+}
+
 export async function createProperty(organizationId, name) {
   const { data, error } = await supabase
     .from('properties')
