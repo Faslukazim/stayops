@@ -4,7 +4,7 @@ import { signIn, signUp } from './services/authService';
 import { Btn } from './components/ui';
 import { NivaLogo } from './components/NivaLogo';
 
-function StayOpsMark() {
+function NivaOpsMark() {
   return (
     <div className="flex flex-col items-center gap-2">
       <NivaLogo size={56} className="rounded-xl" />
@@ -82,7 +82,7 @@ export default function AuthPage({ onAuthed, onBack, defaultMode = 'signin' }) {
     return (
       <div className="min-h-screen bg-mist flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-sm text-center">
-          <div className="mb-8 flex justify-center"><StayOpsMark /></div>
+          <div className="mb-8 flex justify-center"><NivaOpsMark /></div>
           <div className="rounded-2xl bg-white border border-border shadow-md p-8">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-green/10">
               <ArrowRight className="h-6 w-6 text-green" />
@@ -119,7 +119,7 @@ export default function AuthPage({ onAuthed, onBack, defaultMode = 'signin' }) {
         )}
 
         <div className="mb-8 flex justify-center">
-          <StayOpsMark />
+          <NivaOpsMark />
         </div>
 
         <div className="rounded-2xl bg-white border border-border shadow-md p-8">

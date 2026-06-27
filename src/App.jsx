@@ -53,7 +53,7 @@ function PropertyPill({ properties, selectedId, onChange, loading }) {
 
 // ─── header ──────────────────────────────────────────────────────────────────
 
-function StayOpsLogo() {
+function AppLogo() {
   return (
     <div className="flex items-center gap-2.5">
       <NivaLogo size={28} />
@@ -67,7 +67,7 @@ function Header({ properties, selectedPropertyId, onPropertyChange, loadingPrope
     <header className="sticky top-0 z-40 bg-white border-b border-border px-4 py-3 sm:px-6" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}>
       <div className="mx-auto max-w-5xl">
         <div className="flex items-center justify-between gap-4">
-          <StayOpsLogo />
+          <AppLogo />
           <div className="flex items-center gap-2">
             <PropertyPill
               properties={properties}
