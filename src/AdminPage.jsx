@@ -343,12 +343,14 @@ function OrgCard({ org, onApprove, onReject, onBan, onPlanChange, busy, onToast 
   const [banConfirm, setBanConfirm] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [planConfirm, setPlanConfirm]     = useState(false);
+  const [approvePlan, setApprovePlan]     = useState('starter');
   const [localEmail, setLocalEmail]       = useState(org.last_email);
   const [localPassword, setLocalPassword] = useState(org.last_password);
   const [ownerEmail, setOwnerEmail]       = useState(org.owner_email);
 
-  const isPending = !org.approved;
-  const isBusy    = busy === org.org_id;
+  const isPending   = !org.approved;
+  const isBusy      = busy === org.org_id;
+  const isGoogleUser = org.auth_provider === 'google';
 
   function closeActions() {
     setShowReset(false);
@@ -426,17 +428,36 @@ function OrgCard({ org, onApprove, onReject, onBan, onPlanChange, busy, onToast 
 
       {/* Pending actions */}
       {isPending && (
-        <div className="border-t border-amber/20 px-4 py-3 flex items-center gap-2 bg-white/60">
-          <button onClick={() => onReject(org.org_id, org.org_name, true)} disabled={isBusy}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-1.5 text-xs font-semibold text-slate2 hover:border-coral hover:text-coral transition-colors disabled:opacity-40">
-            {isBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-            Reject
-          </button>
-          <button onClick={() => onApprove(org.org_id)} disabled={isBusy}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-leaf text-white px-4 py-1.5 text-xs font-bold hover:bg-leaf/90 transition-colors disabled:opacity-40 ml-auto">
-            {isBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-            Approve
-          </button>
+        <div className="border-t border-amber/20 px-4 py-3 flex flex-col gap-3 bg-white/60">
+          {/* Plan picker */}
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { value: 'starter', label: 'Starter', sub: '₹799/mo · 1 property' },
+              { value: 'pro',     label: 'Pro',     sub: '₹1,499/mo · Multi-property' },
+            ].map(p => (
+              <button key={p.value} type="button" onClick={() => setApprovePlan(p.value)}
+                className={`rounded-xl border px-3 py-2 text-left transition-colors ${
+                  approvePlan === p.value
+                    ? 'border-leaf bg-leaf/5 text-ink'
+                    : 'border-border bg-white text-slate2 hover:border-slate2/40'
+                }`}>
+                <p className="text-xs font-bold">{p.label}</p>
+                <p className="text-[11px] opacity-70">{p.sub}</p>
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => onReject(org.org_id, org.org_name, true)} disabled={isBusy}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-border bg-white px-3 py-1.5 text-xs font-semibold text-slate2 hover:border-coral hover:text-coral transition-colors disabled:opacity-40">
+              {isBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              Reject
+            </button>
+            <button onClick={() => onApprove(org.org_id, approvePlan)} disabled={isBusy}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-leaf text-white px-4 py-1.5 text-xs font-bold hover:bg-leaf/90 transition-colors disabled:opacity-40 ml-auto">
+              {isBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+              Approve as {approvePlan === 'pro' ? 'Pro' : 'Starter'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -445,15 +466,29 @@ function OrgCard({ org, onApprove, onReject, onBan, onPlanChange, busy, onToast 
         <div className="border-t border-border">
           {/* Action bar */}
           <div className="flex items-center gap-1 px-4 py-2.5 bg-mist/60 flex-wrap">
-            <button onClick={() => toggleSection('creds')}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${showCreds ? 'bg-ink text-white' : 'bg-white border border-border text-slate2 hover:bg-mist'}`}>
-              {localPassword ? <Eye className="h-3.5 w-3.5" /> : <BookmarkPlus className="h-3.5 w-3.5" />}
-              {localPassword ? 'View password' : 'Save password'}
-            </button>
-            <button onClick={() => toggleSection('reset')}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${showReset ? 'bg-ink text-white' : 'bg-white border border-border text-ink hover:bg-mist'}`}>
-              <KeyRound className="h-3.5 w-3.5" /> Reset password
-            </button>
+            {isGoogleUser ? (
+              <span className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold bg-white border border-border text-slate2">
+                <svg width="12" height="12" viewBox="0 0 18 18" fill="none" className="shrink-0">
+                  <path d="M17.64 9.205c0-.639-.057-1.252-.164-1.841H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" fill="#4285F4"/>
+                  <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+                  <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+                  <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+                </svg>
+                Google account
+              </span>
+            ) : (
+              <>
+                <button onClick={() => toggleSection('creds')}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${showCreds ? 'bg-ink text-white' : 'bg-white border border-border text-slate2 hover:bg-mist'}`}>
+                  {localPassword ? <Eye className="h-3.5 w-3.5" /> : <BookmarkPlus className="h-3.5 w-3.5" />}
+                  {localPassword ? 'View password' : 'Save password'}
+                </button>
+                <button onClick={() => toggleSection('reset')}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${showReset ? 'bg-ink text-white' : 'bg-white border border-border text-ink hover:bg-mist'}`}>
+                  <KeyRound className="h-3.5 w-3.5" /> Reset password
+                </button>
+              </>
+            )}
             <button onClick={() => toggleSection('email')}
               className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors ${showEmailChange ? 'bg-ink text-white' : 'bg-white border border-border text-ink hover:bg-mist'}`}>
               <Mail className="h-3.5 w-3.5" /> Change email
@@ -782,12 +817,12 @@ export default function AdminPage({ onSignOut, onOpenApp }) {
     return () => { supabase.removeChannel(ch); };
   }, [load]);
 
-  async function approve(org_id) {
+  async function approve(org_id, plan = 'starter') {
     setBusy(org_id);
-    await supabase.rpc('admin_approve_org', { p_org_id: org_id });
+    await supabase.rpc('admin_approve_org', { p_org_id: org_id, p_plan: plan });
     await load();
     setBusy(null);
-    toast({ message: 'Account approved', type: 'success' });
+    toast({ message: `Account approved (${plan === 'pro' ? 'Pro' : 'Starter'})`, type: 'success' });
   }
 
   async function reject(org_id, org_name, skipConfirm = false) {
@@ -810,7 +845,7 @@ export default function AdminPage({ onSignOut, onOpenApp }) {
 
   async function changePlan(org_id, newPlan) {
     setBusy(org_id);
-    const { error } = await supabase.from('organizations').update({ plan: newPlan }).eq('id', org_id);
+    const { error } = await supabase.rpc('admin_set_plan', { p_org_id: org_id, p_plan: newPlan });
     if (error) toast({ message: `Failed: ${toMsg(error)}`, type: 'error' });
     else toast({ message: `Plan changed to ${newPlan === 'pro' ? 'Pro' : 'Starter'}`, type: 'success' });
     await load();
