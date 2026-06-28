@@ -77,6 +77,11 @@ export default function Root() {
 
   const signOut = () => { setSession(null); setMemberships(undefined); setShowAuth(false); };
 
+  // ── Admin (check before org — admin has no org membership) ────────────────
+  if (session.user?.id === ADMIN_UID && adminMode) {
+    return <AdminPage onSignOut={signOut} onOpenApp={() => setAdminMode(false)} />;
+  }
+
   // ── No org yet → onboarding ────────────────────────────────────────────────
   if (memberships.length === 0) {
     return (
@@ -86,11 +91,6 @@ export default function Root() {
         onSignOut={signOut}
       />
     );
-  }
-
-  // ── Admin ──────────────────────────────────────────────────────────────────
-  if (session.user?.id === ADMIN_UID && adminMode) {
-    return <AdminPage onSignOut={signOut} onOpenApp={() => setAdminMode(false)} />;
   }
 
   const activeOrg = memberships[0];
