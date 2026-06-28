@@ -285,7 +285,10 @@ function EmailChangePanel({ userId, currentEmail, onClose, onEmailChanged, onToa
         p_user_id: userId,
         p_email: trimmed,
       });
-      if (err) throw new Error(toMsg(err));
+      if (err) {
+        const msg = toMsg(err);
+        throw new Error(msg.includes('unique') || msg.includes('already') ? 'That email is already used by another account' : msg);
+      }
       onEmailChanged?.(trimmed);
       onToast?.({ message: `Email changed to ${trimmed}`, type: 'success' });
       onClose();
