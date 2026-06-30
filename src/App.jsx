@@ -1472,11 +1472,11 @@ function MovedOutThisMonth({ tenants }) {
   );
 }
 
-function DashboardPage({ tenants, totalBeds, selectedPropertyId, upiId, pendingDeposits, movedOutThisMonth, pendingBookings, onGoToFinance, onGoToRooms, onAddTenant, onAssignTenant, onMarkPaid, onViewTenant, onReturnDeposit, onForfeitDeposit, onConvertBooking }) {
+function DashboardPage({ tenants, totalBeds, hasRooms, selectedPropertyId, upiId, pendingDeposits, movedOutThisMonth, pendingBookings, onGoToFinance, onGoToRooms, onAddTenant, onAssignTenant, onMarkPaid, onViewTenant, onReturnDeposit, onForfeitDeposit, onConvertBooking }) {
   return (
     <div className="flex flex-col gap-4">
       <SetupChecklist
-        totalBeds={totalBeds}
+        hasRooms={hasRooms}
         tenantCount={tenants.length}
         upiId={upiId}
         onGoToRooms={onGoToRooms}
@@ -1756,57 +1756,108 @@ function EmptyWorkspace({ onSeed, seeding, onAddProperty, showDemo }) {
 
 // ─── setup checklist (shown on dashboard until all steps done) ────────────────
 
-function SetupChecklist({ totalBeds, tenantCount, upiId, onGoToRooms, onAddTenant, onGoToFinance }) {
+function SetupChecklist({ hasRooms, tenantCount, upiId, onGoToRooms, onAddTenant, onGoToFinance }) {
   const steps = [
     {
-      done: totalBeds > 0,
-      label: 'Add your rooms and beds',
-      sub: 'Go to Rooms → Add room',
+      done: hasRooms,
+      icon: '🛏️',
+      label: 'Add your rooms & beds',
+      sub: 'Set up your floor plan so you can assign tenants',
       action: onGoToRooms,
+      cta: 'Go to Rooms',
     },
     {
       done: tenantCount > 0,
+      icon: '👤',
       label: 'Add your first tenant',
-      sub: 'Go to Tenants → Add tenant',
+      sub: 'Assign a bed, set monthly rent, and track payments',
       action: onAddTenant,
+      cta: 'Add Tenant',
     },
     {
       done: !!upiId,
+      icon: '💳',
       label: 'Set your UPI ID',
-      sub: 'So tenants can pay directly via WhatsApp reminders',
+      sub: 'Tenants receive your UPI link via WhatsApp for easy payment',
       action: onGoToFinance,
+      cta: 'Set UPI',
     },
   ];
 
-  const allDone = steps.every(s => s.done);
+  const doneCount = steps.filter(s => s.done).length;
+  const allDone = doneCount === steps.length;
   if (allDone) return null;
+
+  const nextStep = steps.find(s => !s.done);
 
   return (
     <Card className="overflow-hidden">
-      <div className="px-4 pt-4 pb-1">
-        <p className="text-xs font-bold text-slate2 uppercase tracking-widest">Getting started</p>
-        <p className="text-sm font-semibold text-ink mt-0.5">Complete these steps to set up your workspace</p>
+      {/* Header */}
+      <div className="px-4 pt-4 pb-3 border-b border-border">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-xs font-bold text-slate2 uppercase tracking-widest">Getting started</p>
+          <span className="text-xs font-semibold text-leaf bg-leaf/10 px-2 py-0.5 rounded-full">{doneCount}/{steps.length} done</span>
+        </div>
+        {/* Progress bar */}
+        <div className="h-1.5 bg-border rounded-full overflow-hidden">
+          <div
+            className="h-full bg-leaf rounded-full transition-all duration-500"
+            style={{ width: `${(doneCount / steps.length) * 100}%` }}
+          />
+        </div>
+        {doneCount === 0 && (
+          <p className="text-sm font-semibold text-ink mt-2.5">Welcome! Let's get your hostel set up 🎉</p>
+        )}
+        {doneCount === 1 && (
+          <p className="text-sm font-semibold text-ink mt-2.5">Great start! Keep going 💪</p>
+        )}
+        {doneCount === 2 && (
+          <p className="text-sm font-semibold text-ink mt-2.5">Almost there — one step left!</p>
+        )}
       </div>
+
+      {/* Steps */}
       <div className="divide-y divide-border">
         {steps.map((step, i) => (
-          <button
+          <div
             key={i}
-            type="button"
-            onClick={step.done ? undefined : step.action}
-            disabled={step.done}
-            className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${step.done ? 'opacity-60' : 'hover:bg-mist'}`}
+            className={`flex items-center gap-3 px-4 py-3 ${!step.done && step === nextStep ? 'bg-leaf/[0.04]' : ''}`}
           >
-            <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
-              step.done ? 'border-leaf bg-leaf' : 'border-border bg-white'
+            {/* Icon / check */}
+            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-base transition-all ${
+              step.done ? 'bg-leaf/10' : step === nextStep ? 'bg-leaf/10' : 'bg-mist'
             }`}>
-              {step.done && <CheckCircle2 className="h-3.5 w-3.5 text-white" />}
+              {step.done
+                ? <CheckCircle2 className="h-5 w-5 text-leaf" />
+                : <span>{step.icon}</span>
+              }
             </div>
+
+            {/* Text */}
             <div className="flex-1 min-w-0">
-              <p className={`text-sm font-medium ${step.done ? 'line-through text-slate2' : 'text-ink'}`}>{step.label}</p>
-              {!step.done && <p className="text-xs text-slate2 mt-0.5">{step.sub}</p>}
+              <p className={`text-sm font-medium leading-tight ${step.done ? 'text-slate2 line-through' : 'text-ink'}`}>
+                {step.label}
+              </p>
+              {!step.done && (
+                <p className="text-xs text-slate2 mt-0.5 leading-snug">{step.sub}</p>
+              )}
             </div>
-            {!step.done && <ChevronRight className="h-4 w-4 text-slate2 shrink-0" />}
-          </button>
+
+            {/* CTA */}
+            {!step.done && (
+              <button
+                type="button"
+                onClick={step.action}
+                className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
+                  step === nextStep
+                    ? 'bg-leaf text-white hover:bg-leaf/90'
+                    : 'bg-mist text-slate2 hover:bg-border'
+                }`}
+              >
+                {step.cta}
+              </button>
+            )}
+          </div>
         ))}
       </div>
     </Card>
@@ -1836,6 +1887,7 @@ export default function App({ session, organizationName, organizationId: orgIdPr
   const [mountedPages, setMountedPages] = useState(() => new Set([page]));
   const [enteringPage, setEnteringPage] = useState(page);
   const [roomsVersion, setRoomsVersion] = useState(0);
+  const [hasRooms, setHasRooms] = useState(false);
   const [collectingTenant, setCollectingTenant] = useState(null);
   const [viewingTenantId, setViewingTenantId] = useState(null);
   const [vacatingTenant, setVacatingTenant] = useState(null);
@@ -1929,6 +1981,14 @@ export default function App({ session, organizationName, organizationId: orgIdPr
   useEffect(() => {
     if (roomsVersion > 0) loadProperties();
   }, [roomsVersion]); // eslint-disable-line
+
+  // Check if actual rooms exist in DB (distinct from onboarding total_beds estimate)
+  useEffect(() => {
+    if (!selectedPropertyId || !hasSupabaseConfig) return;
+    fetchRoomsWithBeds(selectedPropertyId)
+      .then(rooms => setHasRooms(rooms.length > 0))
+      .catch(() => {});
+  }, [selectedPropertyId, roomsVersion]);
 
   const organizationId = useMemo(
     () => properties.find(p => p.id === selectedPropertyId)?.organization_id ?? null,
@@ -2301,6 +2361,7 @@ export default function App({ session, organizationName, organizationId: orgIdPr
                 <DashboardPage
                   tenants={tenants}
                   totalBeds={totalBeds}
+                  hasRooms={hasRooms}
                   selectedPropertyId={selectedPropertyId}
                   upiId={upiId}
                   pendingDeposits={pendingDeposits}
