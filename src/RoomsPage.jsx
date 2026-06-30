@@ -461,7 +461,7 @@ function RoomDetail({ room, rooms, selectedPropertyId, organizationId, upiId, on
     try {
       const currentYM = new Date().toISOString().slice(0, 7);
       await updateTenant(tenantId, { paymentStatus: 'Paid', paymentDate: new Date().toISOString().slice(0, 10) });
-      markTenantRecordPaid(tenantId, currentYM, amountCollected, deductionReason).catch(console.error);
+      await markTenantRecordPaid(tenantId, currentYM, amountCollected, deductionReason).catch(console.error);
       logActivity(selectedPropertyId, 'payment_paid', `${name} marked paid — Room ${room.room_number}`);
       toast.success(`${name} marked paid`);
       onRoomUpdate();
@@ -662,7 +662,7 @@ function RoomDetail({ room, rooms, selectedPropertyId, organizationId, upiId, on
 
 // ─── Add room sheet ───────────────────────────────────────────────────────────
 
-function AddRoomSheet({ onSave, onCancel }) {
+function AddRoomSheet({ onSave, onCancel, existingRoomNumbers = [] }) {
   const [roomNumber, setRoomNumber] = useState('');
   const [beds, setBeds] = useState('2');
   const [saving, setSaving] = useState(false);
@@ -671,13 +671,16 @@ function AddRoomSheet({ onSave, onCancel }) {
 
   async function handleSubmit(e) {
     e.preventDefault();
-    if (!roomNumber.trim()) { setErr('Room number is required.'); return; }
+    const trimmed = roomNumber.trim();
+    if (!trimmed) { setErr('Room number is required.'); return; }
+    if (!/^[a-zA-Z0-9\-]+$/.test(trimmed)) { setErr('Room number can only contain letters, numbers, and hyphens.'); return; }
+    if (existingRoomNumbers.includes(trimmed)) { setErr(`Room ${trimmed} already exists.`); return; }
     const n = parseInt(beds, 10);
     if (!n || n < 1 || n > 20) { setErr('Beds must be 1–20.'); return; }
     setErr('');
     setSaving(true);
     try {
-      await onSave({ roomNumber: roomNumber.trim(), beds: n });
+      await onSave({ roomNumber: trimmed, beds: n });
     } catch (ex) {
       setErr(ex.message);
       setSaving(false);
@@ -837,7 +840,18 @@ export default function RoomsPage({ selectedPropertyId, organizationId, upiId, o
       <div className="hidden sm:grid sm:grid-cols-[300px_1fr] lg:grid-cols-[340px_1fr] gap-4">
         <div className="flex flex-col gap-2 max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
           {rooms.length === 0 ? (
-            <Card><EmptyState icon={BedDouble} title="No rooms yet" body="Tap 'Add Room' above to set up your first room and beds." /></Card>
+            <Card>
+              <div className="flex flex-col items-center gap-3 py-8 px-4 text-center">
+                <BedDouble className="h-10 w-10 text-slate2/40" />
+                <div>
+                  <p className="font-semibold text-ink">No rooms yet</p>
+                  <p className="text-sm text-slate2 mt-1">Add your first room to start assigning beds to tenants.</p>
+                </div>
+                <button type="button" onClick={() => setAddingRoom(true)} className="flex items-center gap-2 rounded-xl bg-green text-white px-4 py-2.5 text-sm font-bold hover:bg-green-hover transition-colors">
+                  <Plus className="h-4 w-4" /> Add First Room
+                </button>
+              </div>
+            </Card>
           ) : rooms.map(room => (
             <RoomCard
               key={room.id}
@@ -877,7 +891,16 @@ export default function RoomsPage({ selectedPropertyId, organizationId, upiId, o
       <div className="sm:hidden flex flex-col gap-2">
         {rooms.length === 0 ? (
           <Card>
-            <EmptyState icon={BedDouble} title="No rooms yet" body="Tap 'Add Room' above to set up your first room and beds." />
+            <div className="flex flex-col items-center gap-3 py-10 px-4 text-center">
+              <BedDouble className="h-10 w-10 text-slate2/40" />
+              <div>
+                <p className="font-semibold text-ink">No rooms yet</p>
+                <p className="text-sm text-slate2 mt-1">Set up your rooms and beds to start managing tenants.</p>
+              </div>
+              <button type="button" onClick={() => setAddingRoom(true)} className="flex items-center gap-2 rounded-xl bg-green text-white px-4 py-2.5 text-sm font-bold hover:bg-green-hover transition-colors">
+                <Plus className="h-4 w-4" /> Add First Room
+              </button>
+            </div>
           </Card>
         ) : rooms.map(room => (
           <RoomCard
@@ -893,6 +916,7 @@ export default function RoomsPage({ selectedPropertyId, organizationId, upiId, o
         <AddRoomSheet
           onSave={handleAddRoom}
           onCancel={() => setAddingRoom(false)}
+          existingRoomNumbers={rooms.map(r => r.room_number)}
         />
       )}
     </div>

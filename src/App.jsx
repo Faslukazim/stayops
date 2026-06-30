@@ -27,7 +27,8 @@ import {
 
 
 
-function DeletePropertyModal({ propertyName, onConfirm, onClose, busy }) {
+function DeletePropertyModal({ propertyName, tenantCount, roomCount, onConfirm, onClose, busy }) {
+  const hasContent = tenantCount > 0 || roomCount > 0;
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center px-4"
       style={{ background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)' }}
@@ -40,7 +41,12 @@ function DeletePropertyModal({ propertyName, onConfirm, onClose, busy }) {
           </div>
           <h2 className="text-sm font-bold text-ink">Delete "{propertyName}"?</h2>
         </div>
-        <p className="text-sm text-slate2 mb-5">All rooms, beds, tenants, and payments for this property will be hidden. This cannot be undone easily.</p>
+        {hasContent && (
+          <div className="rounded-lg bg-coral/5 border border-coral/20 px-3 py-2.5 mb-4 text-sm text-coral">
+            ⚠️ This property has <strong>{tenantCount} active tenant{tenantCount !== 1 ? 's' : ''}</strong> and <strong>{roomCount} room{roomCount !== 1 ? 's' : ''}</strong>. All data will be archived.
+          </div>
+        )}
+        <p className="text-sm text-slate2 mb-5">All rooms, beds, tenants, and payments will be hidden. This is difficult to undo — contact support if needed.</p>
         <div className="flex gap-2">
           <button onClick={onClose} className="flex-1 rounded-xl border border-border py-2.5 text-sm font-semibold text-slate2 hover:bg-mist transition-colors">
             Cancel
@@ -48,7 +54,7 @@ function DeletePropertyModal({ propertyName, onConfirm, onClose, busy }) {
           <button onClick={onConfirm} disabled={busy}
             className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-coral text-white py-2.5 text-sm font-bold hover:bg-coral/90 transition-colors disabled:opacity-50">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            Delete
+            {hasContent ? 'Delete Anyway' : 'Delete'}
           </button>
         </div>
       </div>
@@ -512,12 +518,23 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
       setPhoneError('Enter a valid 10-digit Indian mobile number (e.g. 9876543210)');
       return;
     }
+    const rent = Number(form.monthlyRent);
+    if (!rent || rent <= 0) {
+      setPhoneError('Monthly rent must be greater than 0');
+      return;
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    if (form.joinDate > today) {
+      setPhoneError('Join date cannot be in the future');
+      return;
+    }
+    const dueDay = Math.min(Number(form.rentDueDay || form.joinDate?.slice(8, 10) || 1), 28);
     setPhoneError('');
     await onSubmit({
       ...form,
       phone: normalizePhone(form.phone),
-      monthlyRent: Number(form.monthlyRent),
-      rentDueDay: Number(form.rentDueDay || form.joinDate?.slice(8, 10) || 1),
+      monthlyRent: rent,
+      rentDueDay: dueDay,
       admissionFee: Number(form.admissionFee || 0),
       depositAmount: Number(form.depositAmount || 0),
       moveInCollection: Number(form.moveInCollection || 0),
@@ -644,10 +661,10 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
               required
               type="date"
               value={form.joinDate}
+              max={new Date().toISOString().slice(0, 10)}
               onChange={e => {
                 const d = e.target.value;
                 set('joinDate', d);
-                // Auto-sync rent due day for new tenants (operator can override)
                 if (!initialTenant && d) set('rentDueDay', String(Number(d.slice(8, 10))));
               }}
               className={inputCls}
@@ -657,14 +674,14 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
 
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block">
-            <Label>Rent Due Day <span className="text-slate2 font-normal">(day of month)</span></Label>
+            <Label>Rent Due Day <span className="text-slate2 font-normal">(1–28)</span></Label>
             <input
               required
               type="number"
               min="1"
               max="28"
               value={form.rentDueDay}
-              onChange={e => set('rentDueDay', e.target.value)}
+              onChange={e => set('rentDueDay', String(Math.min(Number(e.target.value), 28)))}
               className={`mt-1.5 ${inputCls}`}
               placeholder="e.g. 5"
             />
@@ -677,6 +694,7 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
           <label className="block">
             <Label>Admission Fee <span className="text-slate2 font-normal">(one-time)</span></Label>
             <MoneyInput value={form.admissionFee} onChange={v => set('admissionFee', v)} className="mt-1.5" />
+            {initialTenant && <p className="mt-1 text-xs text-slate2">One-time, already collected — for records only</p>}
           </label>
           <label className="block">
             <Label>Security Deposit <span className="text-slate2 font-normal">(refundable)</span></Label>
@@ -684,13 +702,15 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
           </label>
         </div>
 
-        <div className="rounded-lg bg-mist px-3 py-2.5">
-          <div className="flex items-center justify-between mb-1.5">
-            <Label>Move-In Collection</Label>
-            <span className="text-xs text-slate2">Rent + Admission + Deposit</span>
+        {!initialTenant && (
+          <div className="rounded-lg bg-mist px-3 py-2.5">
+            <div className="flex items-center justify-between mb-1.5">
+              <Label>Move-In Collection</Label>
+              <span className="text-xs text-slate2">Rent + Admission + Deposit (auto)</span>
+            </div>
+            <p className="text-base font-bold text-ink tabular-nums">{fmt(Number(form.moveInCollection || 0))}</p>
           </div>
-          <MoneyInput value={form.moveInCollection} onChange={v => set('moveInCollection', v)} />
-        </div>
+        )}
 
         {/* ID Photo */}
         <div>
@@ -727,9 +747,12 @@ function TenantForm({ initialTenant, properties, defaultPropertyId, prefill, onS
 
 function VacateModal({ tenant, onConfirm, onCancel, saving }) {
   const today = new Date().toISOString().slice(0, 10);
+  const maxDate = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
   const [endDate, setEndDate] = useState(today);
   const [depositAction, setDepositAction] = useState('later');
-  const hasDeposit = tenant.depositAmount > 0 && tenant.depositStatus === 'held';
+  const hasDeposit = tenant.depositAmount > 0;
+  const depositAlreadySettled = hasDeposit && (tenant.depositStatus === 'returned' || tenant.depositStatus === 'forfeited');
+  const depositHeld = hasDeposit && tenant.depositStatus === 'held';
 
   const inputCls = 'w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ink/20 focus:border-ink bg-white';
 
@@ -753,14 +776,23 @@ function VacateModal({ tenant, onConfirm, onCancel, saving }) {
             <input
               type="date"
               value={endDate}
-              max={today}
+              max={maxDate}
               onChange={e => setEndDate(e.target.value)}
               className={`mt-1.5 ${inputCls}`}
             />
+            {endDate > today && <p className="mt-1 text-xs text-amber">Future date — bed stays occupied until then</p>}
           </label>
 
           {/* Deposit settlement */}
-          {hasDeposit && (
+          {depositAlreadySettled && (
+            <div className="rounded-lg bg-mist px-3 py-2.5 text-sm text-slate2">
+              Security deposit of <span className="font-semibold">{fmt(tenant.depositAmount)}</span> already{' '}
+              <span className={tenant.depositStatus === 'returned' ? 'text-leaf font-semibold' : 'text-coral font-semibold'}>
+                {tenant.depositStatus === 'returned' ? 'returned' : 'forfeited'}
+              </span>
+            </div>
+          )}
+          {depositHeld && (
             <div>
               <Label>Security Deposit — {fmt(tenant.depositAmount)}</Label>
               <div className="mt-1.5 flex flex-col gap-2">
@@ -790,9 +822,9 @@ function VacateModal({ tenant, onConfirm, onCancel, saving }) {
           {/* Summary */}
           <div className="rounded-lg bg-mist px-3 py-2.5 text-xs text-slate2 space-y-0.5">
             <p>· Bed {tenant.bedNumber} will be marked <span className="font-semibold text-ink">available</span></p>
-            {hasDeposit && depositAction === 'returned'  && <p>· Deposit <span className="font-semibold text-success">returned</span></p>}
-            {hasDeposit && depositAction === 'forfeited' && <p>· Deposit marked <span className="font-semibold text-coral">not refundable</span></p>}
-            {hasDeposit && depositAction === 'later'     && <p>· Deposit appears in <span className="font-semibold text-amber">Deposits to Review</span></p>}
+            {depositHeld && depositAction === 'returned'  && <p>· Deposit <span className="font-semibold text-success">returned</span></p>}
+            {depositHeld && depositAction === 'forfeited' && <p>· Deposit marked <span className="font-semibold text-coral">not refundable</span></p>}
+            {depositHeld && depositAction === 'later'     && <p>· Deposit appears in <span className="font-semibold text-amber">Deposits to Review</span></p>}
           </div>
 
           <div className="flex gap-2">
@@ -890,6 +922,7 @@ function fmtShortDate(iso) {
 }
 
 function TenantCard({ tenant, upiId, flashPaid, onEdit, onDelete, onVacate, onMarkPaid, onMarkUnpaid, onReturnDeposit, onForfeitDeposit }) {
+  const [confirmUnpaid, setConfirmUnpaid] = useState(false);
   const isPaid = tenant.paymentStatus === 'Paid';
   const hasDeposit = tenant.depositAmount > 0;
   const depositHeld = hasDeposit && tenant.depositStatus === 'held';
@@ -1072,14 +1105,22 @@ function TenantCard({ tenant, upiId, flashPaid, onEdit, onDelete, onVacate, onMa
 
       <div className="flex items-center justify-between gap-2 px-3 py-2 border-t border-border">
         {isPaid ? (
-          <button
-            type="button"
-            onClick={() => onMarkUnpaid(tenant)}
-            className="flex items-center gap-1.5 text-xs text-slate2 hover:text-ink transition-colors py-1"
-          >
-            <CheckCircle2 className="h-3.5 w-3.5 text-success" />
-            Paid · Undo
-          </button>
+          confirmUnpaid ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate2">Mark unpaid?</span>
+              <button type="button" onClick={() => { onMarkUnpaid(tenant); setConfirmUnpaid(false); }} className="text-xs font-semibold text-coral hover:underline">Yes</button>
+              <button type="button" onClick={() => setConfirmUnpaid(false)} className="text-xs text-slate2 hover:underline">No</button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setConfirmUnpaid(true)}
+              className="flex items-center gap-1.5 text-xs text-slate2 hover:text-ink transition-colors py-1"
+            >
+              <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+              Paid · Undo
+            </button>
+          )
         ) : (
           <button
             type="button"
@@ -1949,6 +1990,7 @@ export default function App({ session, organizationName, organizationId: orgIdPr
   const [enteringPage, setEnteringPage] = useState(page);
   const [roomsVersion, setRoomsVersion] = useState(0);
   const [hasRooms, setHasRooms] = useState(false);
+  const [roomCount, setRoomCount] = useState(0);
   const [collectingTenant, setCollectingTenant] = useState(null);
   const [viewingTenantId, setViewingTenantId] = useState(null);
   const [vacatingTenant, setVacatingTenant] = useState(null);
@@ -2047,7 +2089,7 @@ export default function App({ session, organizationName, organizationId: orgIdPr
   useEffect(() => {
     if (!selectedPropertyId || !hasSupabaseConfig) return;
     fetchRoomsWithBeds(selectedPropertyId)
-      .then(rooms => setHasRooms(rooms.length > 0))
+      .then(rooms => { setHasRooms(rooms.length > 0); setRoomCount(rooms.length); })
       .catch(() => {});
   }, [selectedPropertyId, roomsVersion]);
 
@@ -2166,6 +2208,13 @@ export default function App({ session, organizationName, organizationId: orgIdPr
   }
 
   async function handleConvertBooking(booking) {
+    // Verify bed is still available before converting
+    try {
+      const rooms = await fetchRoomsWithBeds(selectedPropertyId);
+      const room = rooms.find(r => r.id === booking.room_id);
+      const bed = room?.beds?.find(b => b.id === booking.bed_id);
+      if (!bed) { toast.error('This bed no longer exists.'); return; }
+    } catch { /* non-critical — proceed */ }
     try { await convertBooking(booking.id); } catch (e) { toast.error(e.message); return; }
     // Pre-fill the add-tenant form. Use roomPrefill (no initialTenant) so
     // TenantForm enters "new tenant" mode with name/phone as separate state.
@@ -2349,6 +2398,8 @@ export default function App({ session, organizationName, organizationId: orgIdPr
       {showDeleteProperty && (
         <DeletePropertyModal
           propertyName={properties.find(p => p.id === selectedPropertyId)?.name ?? 'this property'}
+          tenantCount={tenants.length}
+          roomCount={roomCount}
           busy={deletingProperty}
           onClose={() => setShowDeleteProperty(false)}
           onConfirm={async () => {

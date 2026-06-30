@@ -328,7 +328,7 @@ function RentTab({ selectedPropertyId, onViewTenant, upiId }) {
       {loading ? (
         <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-slate2" /></div>
       ) : records.length === 0 ? (
-        <Card><EmptyState icon={CreditCard} title="No records for this month" body="Records are created automatically when tenants are active." /></Card>
+        <Card><EmptyState icon={CreditCard} title="No records for this month" body="Records auto-create when you add tenants. Add your first tenant to start tracking rent." /></Card>
       ) : (
         <>
           <RentSection title="Overdue"   meta={STATUS_META[STATUS.OVERDUE]}   records={overdue}   ym={ym} onMarkPaid={setCollecting} onMarkUnpaid={handleUnpaid} onViewTenant={onViewTenant} upiId={upiId} onPaymentLink={handlePaymentLink} />
@@ -579,6 +579,7 @@ function IncomeTab({ selectedPropertyId, organizationId, tenants }) {
   const [photoPreview, setPhotoPreview] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const isDayGuest = form.typeChip === 'Day Guest';
@@ -788,9 +789,16 @@ function IncomeTab({ selectedPropertyId, organizationId, tenants }) {
                   </p>
                 </div>
                 <span className="text-sm font-bold tabular-nums text-leaf shrink-0">{fmt(r.amount)}</span>
-                <IconBtn variant="ghost" onClick={() => handleDelete(r.id)} disabled={deletingId === r.id} className="text-slate2 hover:text-coral">
-                  {deletingId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                </IconBtn>
+                {confirmDeleteId === r.id ? (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button type="button" onClick={() => { handleDelete(r.id); setConfirmDeleteId(null); }} className="text-xs font-semibold text-coral hover:underline">Delete</button>
+                    <button type="button" onClick={() => setConfirmDeleteId(null)} className="text-xs text-slate2 hover:underline">Cancel</button>
+                  </div>
+                ) : (
+                  <IconBtn variant="ghost" onClick={() => setConfirmDeleteId(r.id)} disabled={deletingId === r.id} className="text-slate2 hover:text-coral">
+                    {deletingId === r.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  </IconBtn>
+                )}
               </div>
             ))}
           </div>
