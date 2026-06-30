@@ -9,16 +9,19 @@ Deno.serve(async (req: Request) => {
     const body = await req.text();
     const signature = req.headers.get('x-razorpay-signature') ?? '';
 
-    if (webhookSecret) {
-      const key = await crypto.subtle.importKey(
-        'raw', new TextEncoder().encode(webhookSecret),
-        { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
-      );
-      const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body));
-      const expected = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
-      if (expected !== signature) {
-        return new Response('Invalid signature', { status: 400 });
-      }
+    // Fail closed: reject all webhook calls if secret is not configured
+    if (!webhookSecret) {
+      return new Response('Webhook secret not configured', { status: 500 });
+    }
+
+    const key = await crypto.subtle.importKey(
+      'raw', new TextEncoder().encode(webhookSecret),
+      { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
+    );
+    const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body));
+    const expected = Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
+    if (expected !== signature) {
+      return new Response('Invalid signature', { status: 400 });
     }
 
     const event = JSON.parse(body);

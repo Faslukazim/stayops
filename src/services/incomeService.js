@@ -37,8 +37,6 @@ export async function uploadIdPhoto(orgId, entityId, file) {
   const path = `${orgId}/${entityId}.${ext}`;
   const { error } = await supabase.storage.from('tenant-photos').upload(path, file, { upsert: true });
   if (error) throw error;
-  const { data } = supabase.storage.from('tenant-photos').getPublicUrl(path);
-  // Use signed URL since bucket is private
   const { data: signed, error: signErr } = await supabase.storage
     .from('tenant-photos')
     .createSignedUrl(path, 60 * 60 * 24 * 365);
