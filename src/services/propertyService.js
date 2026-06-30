@@ -10,6 +10,22 @@ export async function fetchProperties() {
   return data;
 }
 
+export async function updatePropertyName(propertyId, name) {
+  const { error } = await supabase
+    .from('properties')
+    .update({ name: name.trim() })
+    .eq('id', propertyId);
+  if (error) throw error;
+}
+
+export async function updateRoomNumber(roomId, roomNumber) {
+  const { error } = await supabase
+    .from('rooms')
+    .update({ room_number: roomNumber.trim() })
+    .eq('id', roomId);
+  if (error) throw error;
+}
+
 export async function deleteProperty(propertyId) {
   const { error } = await supabase
     .from('properties')

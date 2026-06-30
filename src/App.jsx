@@ -8,7 +8,7 @@ import { createTenant, deleteTenant, vacateTenant, fetchTenants, fetchVacatedTen
 import { addIncomeRecord, uploadIdPhoto, saveTenantIdPhoto } from './services/incomeService';
 import { markTenantRecordPaid } from './services/paymentService';
 import { logActivity, fetchRecentActivity } from './services/activityService';
-import { fetchProperties, fetchRoomsWithBeds, updatePropertyUpiId, createProperty, deleteProperty } from './services/propertyService';
+import { fetchProperties, fetchRoomsWithBeds, updatePropertyUpiId, updatePropertyName, createProperty, deleteProperty } from './services/propertyService';
 import { readExpensesSync } from './services/financeService';
 import { seedSampleWorkspace, clearSampleWorkspace } from './services/seedService';
 import { fetchBookings, convertBooking } from './services/bookingService';
@@ -56,7 +56,50 @@ function DeletePropertyModal({ propertyName, onConfirm, onClose, busy }) {
   );
 }
 
-function PropertyPill({ properties, selectedId, onChange, loading, canAddProperty, onAddProperty, onDeleteProperty }) {
+function RenamePropertyModal({ currentName, onSave, onClose }) {
+  const [name, setName] = useState(currentName);
+  const [busy, setBusy] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === currentName) { onClose(); return; }
+    setBusy(true);
+    try { await onSave(trimmed); onClose(); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center px-4"
+      style={{ background: 'rgba(15,23,42,0.4)', backdropFilter: 'blur(4px)' }}
+      onClick={onClose}>
+      <div className="w-full max-w-xs rounded-2xl bg-white border border-border shadow-xl p-6"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-bold text-ink">Rename property</h2>
+          <button onClick={onClose} className="text-slate2 hover:text-ink"><X className="h-4 w-4" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <input
+            autoFocus
+            value={name}
+            onChange={e => setName(e.target.value)}
+            className="w-full rounded-xl border border-border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green/30 focus:border-green"
+          />
+          <button type="submit" disabled={busy || !name.trim()}
+            className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-green text-white py-2.5 text-sm font-bold hover:bg-green-hover transition-colors disabled:opacity-50">
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function PropertyPill({ properties, selectedId, onChange, loading, canAddProperty, onAddProperty, onDeleteProperty, onRenameProperty }) {
+  const [showRename, setShowRename] = useState(false);
+  const selectedProperty = properties.find(p => p.id === selectedId);
+
   if (loading) {
     return (
       <div className="flex items-center gap-1.5 text-xs text-slate2">
@@ -80,6 +123,16 @@ function PropertyPill({ properties, selectedId, onChange, loading, canAddPropert
           <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate2" />
         </div>
       )}
+      {selectedId && properties.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowRename(true)}
+          title="Rename property"
+          className="inline-flex items-center justify-center rounded-lg bg-mist border border-border p-1.5 text-slate2 hover:bg-border hover:text-ink transition-colors"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+      )}
       {canAddProperty && (
         <button
           type="button"
@@ -99,6 +152,13 @@ function PropertyPill({ properties, selectedId, onChange, loading, canAddPropert
         >
           <Trash2 className="h-3.5 w-3.5" />
         </button>
+      )}
+      {showRename && selectedProperty && (
+        <RenamePropertyModal
+          currentName={selectedProperty.name}
+          onSave={onRenameProperty}
+          onClose={() => setShowRename(false)}
+        />
       )}
     </div>
   );
@@ -166,7 +226,7 @@ function AppLogo() {
   );
 }
 
-function Header({ properties, selectedPropertyId, onPropertyChange, loadingProperties, onSignOut, isAdmin, onOpenAdmin, canAddProperty, onAddProperty, onDeleteProperty }) {
+function Header({ properties, selectedPropertyId, onPropertyChange, loadingProperties, onSignOut, isAdmin, onOpenAdmin, canAddProperty, onAddProperty, onDeleteProperty, onRenameProperty }) {
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-border px-4 py-3 sm:px-6" style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 0.75rem)' }}>
       <div className="mx-auto max-w-5xl">
@@ -181,6 +241,7 @@ function Header({ properties, selectedPropertyId, onPropertyChange, loadingPrope
               canAddProperty={canAddProperty}
               onAddProperty={onAddProperty}
               onDeleteProperty={onDeleteProperty}
+              onRenameProperty={onRenameProperty}
             />
             {isAdmin && (
               <button
@@ -2023,6 +2084,14 @@ export default function App({ session, organizationName, organizationId: orgIdPr
     finally { setSeeding(false); }
   }
 
+  async function handleRenameProperty(newName) {
+    try {
+      await updatePropertyName(selectedPropertyId, newName);
+      setProperties(cur => cur.map(p => p.id === selectedPropertyId ? { ...p, name: newName } : p));
+      toast.success('Property renamed');
+    } catch (e) { toast.error(e.message); }
+  }
+
   async function handleSaveUpi(newUpiId) {
     try {
       await updatePropertyUpiId(selectedPropertyId, newUpiId);
@@ -2317,6 +2386,7 @@ export default function App({ session, organizationName, organizationId: orgIdPr
         canAddProperty={canAddProperty}
         onAddProperty={() => setShowAddProperty(true)}
         onDeleteProperty={() => setShowDeleteProperty(true)}
+        onRenameProperty={handleRenameProperty}
       />
       <TopNav active={page} onChange={navigateTo} bookingCount={pendingBookings.length} />
 

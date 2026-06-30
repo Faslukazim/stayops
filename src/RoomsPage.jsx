@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useToast } from './lib/toast.jsx';
-import { ArrowLeft, ArrowRightLeft, BedDouble, Bookmark, ChevronDown, Loader2, Plus, Trash2, UserPlus, X } from 'lucide-react';
-import { fetchRoomsWithOccupants, createRoom, deleteRoom, deleteBed } from './services/propertyService';
+import { ArrowLeft, ArrowRightLeft, BedDouble, Bookmark, Check, ChevronDown, Loader2, Pencil, Plus, Trash2, UserPlus, X } from 'lucide-react';
+import { fetchRoomsWithOccupants, createRoom, deleteRoom, deleteBed, updateRoomNumber } from './services/propertyService';
 import { deleteTenant, moveTenant, updateTenant } from './services/tenantService';
 import { createBooking, cancelBooking, convertBooking } from './services/bookingService';
 import { markTenantRecordPaid } from './services/paymentService';
@@ -432,6 +432,22 @@ function RoomDetail({ room, rooms, selectedPropertyId, organizationId, upiId, on
   const [collectingBed, setCollectingBed] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [editingRoomNumber, setEditingRoomNumber] = useState(false);
+  const [roomNumberDraft, setRoomNumberDraft] = useState(room.room_number);
+  const [savingRoomNumber, setSavingRoomNumber] = useState(false);
+
+  async function handleSaveRoomNumber() {
+    const val = roomNumberDraft.trim();
+    if (!val || val === room.room_number) { setEditingRoomNumber(false); return; }
+    setSavingRoomNumber(true);
+    try {
+      await updateRoomNumber(room.id, val);
+      toast.success(`Room renamed to ${val}`);
+      onRoomUpdate();
+      setEditingRoomNumber(false);
+    } catch (e) { toast.error(e.message); }
+    finally { setSavingRoomNumber(false); }
+  }
 
   const hasAvailable = room.beds.some(b => !b.tenant);
 
@@ -515,7 +531,28 @@ function RoomDetail({ room, rooms, selectedPropertyId, organizationId, upiId, on
             <IconBtn variant="ghost" onClick={onClose} className="sm:hidden">
               <ArrowLeft className="h-4 w-4" />
             </IconBtn>
-            <h2 className="font-semibold text-ink text-lg">Room {room.room_number}</h2>
+            {editingRoomNumber ? (
+              <div className="flex items-center gap-1">
+                <input
+                  autoFocus
+                  value={roomNumberDraft}
+                  onChange={e => setRoomNumberDraft(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSaveRoomNumber(); if (e.key === 'Escape') setEditingRoomNumber(false); }}
+                  className="w-24 rounded-lg border border-border px-2 py-1 text-sm font-semibold text-ink focus:outline-none focus:ring-2 focus:ring-ink/20"
+                />
+                <IconBtn variant="ghost" onClick={handleSaveRoomNumber} disabled={savingRoomNumber}>
+                  {savingRoomNumber ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5 text-leaf" />}
+                </IconBtn>
+                <IconBtn variant="ghost" onClick={() => setEditingRoomNumber(false)}><X className="h-3.5 w-3.5" /></IconBtn>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1 group">
+                <h2 className="font-semibold text-ink text-lg">Room {room.room_number}</h2>
+                <IconBtn variant="ghost" onClick={() => { setRoomNumberDraft(room.room_number); setEditingRoomNumber(true); }} className="opacity-0 group-hover:opacity-100 transition-opacity" title="Rename room">
+                  <Pencil className="h-3.5 w-3.5 text-slate2" />
+                </IconBtn>
+              </div>
+            )}
           </div>
           <p className="mt-0.5 text-sm text-slate2 tabular-nums">
             {occupied} occupied · {capacity - occupied} vacant{capacity > 0 ? ` · ${Math.round((occupied / capacity) * 100)}% full` : ''}
