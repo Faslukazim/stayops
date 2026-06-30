@@ -359,6 +359,14 @@ const EMPTY_EXPENSE = {
   expenseDate: new Date().toISOString().slice(0, 10),
 };
 
+function budgetKey(propertyId) { return `expense-budgets-${propertyId}`; }
+function loadBudgets(propertyId) {
+  try { return JSON.parse(localStorage.getItem(budgetKey(propertyId)) ?? '{}'); } catch { return {}; }
+}
+function saveBudgets(propertyId, budgets) {
+  localStorage.setItem(budgetKey(propertyId), JSON.stringify(budgets));
+}
+
 function ExpensesTab({ selectedPropertyId }) {
   const [ym, setYm] = useState(ymNow);
   const [expenses, setExpenses] = useState([]);
@@ -367,6 +375,23 @@ function ExpensesTab({ selectedPropertyId }) {
   const [form, setForm] = useState(EMPTY_EXPENSE);
   const [showForm, setShowForm] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [budgets, setBudgets] = useState(() => loadBudgets(selectedPropertyId));
+  const [editingBudget, setEditingBudget] = useState(null);
+  const [budgetDraft, setBudgetDraft] = useState('');
+
+  useEffect(() => {
+    setBudgets(loadBudgets(selectedPropertyId));
+  }, [selectedPropertyId]);
+
+  function handleSetBudget(catId) {
+    const val = Number(budgetDraft);
+    const updated = { ...budgets, [catId]: val > 0 ? val : undefined };
+    if (val <= 0) delete updated[catId];
+    saveBudgets(selectedPropertyId, updated);
+    setBudgets(updated);
+    setEditingBudget(null);
+    setBudgetDraft('');
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -404,7 +429,8 @@ function ExpensesTab({ selectedPropertyId }) {
   const byCategory = EXPENSE_CATEGORIES.map(cat => ({
     ...cat,
     total: expenses.filter(e => e.category === cat.id).reduce((s, e) => s + e.amount, 0),
-  })).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
+    budget: budgets[cat.id] ?? 0,
+  })).filter(c => c.total > 0 || c.budget > 0).sort((a, b) => b.total - a.total);
 
   const catLabel = id => EXPENSE_CATEGORIES.find(c => c.id === id)?.label ?? id;
 
@@ -415,7 +441,7 @@ function ExpensesTab({ selectedPropertyId }) {
       <MonthNav ym={ym} onChange={setYm} />
 
       {/* Stats */}
-      {expenses.length > 0 && (
+      {(expenses.length > 0 || byCategory.length > 0) && (
         <Card className="overflow-hidden">
           <div className="px-4 py-3 flex items-center justify-between border-b border-border">
             <Label>Total Expenses</Label>
@@ -423,20 +449,53 @@ function ExpensesTab({ selectedPropertyId }) {
           </div>
           {byCategory.length > 0 && (
             <div className="divide-y divide-border">
-              {byCategory.map(cat => (
-                <div key={cat.id} className="flex items-center justify-between px-4 py-2.5">
-                  <span className="text-sm text-ink">{cat.label}</span>
-                  <div className="flex items-center gap-3">
-                    <div className="h-1.5 w-20 rounded-full bg-border overflow-hidden">
+              {byCategory.map(cat => {
+                const pct = cat.budget > 0 ? Math.min(100, Math.round((cat.total / cat.budget) * 100)) : Math.round((cat.total / total) * 100);
+                const overBudget = cat.budget > 0 && cat.total > cat.budget;
+                return (
+                  <div key={cat.id} className="px-4 py-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-ink">{cat.label}</span>
+                      <div className="flex items-center gap-2">
+                        {editingBudget === cat.id ? (
+                          <form onSubmit={e => { e.preventDefault(); handleSetBudget(cat.id); }} className="flex items-center gap-1">
+                            <input
+                              autoFocus
+                              type="number"
+                              min="0"
+                              value={budgetDraft}
+                              onChange={e => setBudgetDraft(e.target.value)}
+                              placeholder="Budget ₹"
+                              className="w-24 rounded border border-border px-2 py-0.5 text-xs focus:outline-none focus:ring-1 focus:ring-ink/20"
+                            />
+                            <button type="submit" className="text-xs text-leaf font-semibold px-1">Set</button>
+                            <button type="button" onClick={() => setEditingBudget(null)} className="text-xs text-slate2 px-1">✕</button>
+                          </form>
+                        ) : (
+                          <button
+                            onClick={() => { setEditingBudget(cat.id); setBudgetDraft(cat.budget > 0 ? String(cat.budget) : ''); }}
+                            className="text-[10px] text-slate2 hover:text-ink border border-dashed border-slate2/40 rounded px-1.5 py-0.5"
+                          >
+                            {cat.budget > 0 ? `Budget: ${fmt(cat.budget)}` : '+ Budget'}
+                          </button>
+                        )}
+                        <span className={`text-sm font-semibold tabular-nums w-20 text-right ${overBudget ? 'text-coral' : 'text-ink'}`}>{fmt(cat.total)}</span>
+                      </div>
+                    </div>
+                    <div className="mt-1.5 h-1.5 w-full rounded-full bg-border overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-coral/60"
-                        style={{ width: `${Math.round((cat.total / total) * 100)}%` }}
+                        className={`h-full rounded-full transition-all ${overBudget ? 'bg-coral' : cat.budget > 0 ? 'bg-amber' : 'bg-coral/50'}`}
+                        style={{ width: `${pct}%` }}
                       />
                     </div>
-                    <span className="text-sm font-semibold tabular-nums text-coral w-20 text-right">{fmt(cat.total)}</span>
+                    {cat.budget > 0 && (
+                      <p className={`mt-0.5 text-[10px] ${overBudget ? 'text-coral font-semibold' : 'text-slate2'}`}>
+                        {overBudget ? `Over by ${fmt(cat.total - cat.budget)}` : `${fmt(cat.budget - cat.total)} remaining`}
+                      </p>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </Card>

@@ -276,7 +276,7 @@ const PAGES = [
   { id: 'finance',   label: 'Finance',  icon: BarChart2 },
 ];
 
-function BottomNav({ active, onChange, bookingCount = 0 }) {
+function BottomNav({ active, onChange, bookingCount = 0, overdueCount = 0 }) {
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-50 bg-midnight border-t border-white/10 sm:hidden"
@@ -286,7 +286,10 @@ function BottomNav({ active, onChange, bookingCount = 0 }) {
         {PAGES.map(p => {
           const Icon = p.icon;
           const isActive = active === p.id;
-          const badge = p.id === 'rooms' && bookingCount > 0;
+          const badge = (p.id === 'rooms' && bookingCount > 0) ? bookingCount
+            : (p.id === 'finance' && overdueCount > 0) ? overdueCount
+            : 0;
+          const badgeColor = p.id === 'finance' ? 'bg-coral' : 'bg-amber';
           return (
             <button
               key={p.id}
@@ -301,7 +304,7 @@ function BottomNav({ active, onChange, bookingCount = 0 }) {
               )}
               <div className={`relative rounded-xl p-1 transition-colors ${isActive ? 'bg-green/10' : ''}`}>
                 <Icon className={`h-5 w-5 ${isActive ? 'text-green stroke-[2.5]' : 'text-white/40 stroke-[1.5]'}`} />
-                {badge && <span className="absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-amber text-white text-[8px] font-bold flex items-center justify-center">{bookingCount}</span>}
+                {badge > 0 && <span className={`absolute -top-0.5 -right-0.5 h-3.5 w-3.5 rounded-full ${badgeColor} text-white text-[8px] font-bold flex items-center justify-center`}>{badge > 9 ? '9+' : badge}</span>}
               </div>
               {p.label}
             </button>
@@ -312,14 +315,17 @@ function BottomNav({ active, onChange, bookingCount = 0 }) {
   );
 }
 
-function TopNav({ active, onChange, bookingCount = 0 }) {
+function TopNav({ active, onChange, bookingCount = 0, overdueCount = 0 }) {
   return (
     <nav className="hidden sm:flex border-b border-border bg-white px-6">
       <div className="mx-auto max-w-5xl w-full flex gap-1">
         {PAGES.map(p => {
           const Icon = p.icon;
           const isActive = active === p.id;
-          const badge = p.id === 'rooms' && bookingCount > 0;
+          const badge = (p.id === 'rooms' && bookingCount > 0) ? bookingCount
+            : (p.id === 'finance' && overdueCount > 0) ? overdueCount
+            : 0;
+          const badgeColor = p.id === 'finance' ? 'bg-coral' : 'bg-amber';
           return (
             <button
               key={p.id}
@@ -333,7 +339,7 @@ function TopNav({ active, onChange, bookingCount = 0 }) {
             >
               <Icon className="h-4 w-4" />
               {p.label}
-              {badge && <span className="ml-0.5 h-4 w-4 rounded-full bg-amber text-white text-[9px] font-bold flex items-center justify-center">{bookingCount}</span>}
+              {badge > 0 && <span className={`ml-0.5 h-4 w-4 rounded-full ${badgeColor} text-white text-[9px] font-bold flex items-center justify-center`}>{badge > 9 ? '9+' : badge}</span>}
             </button>
           );
         })}
@@ -2439,7 +2445,7 @@ export default function App({ session, organizationName, organizationId: orgIdPr
         onDeleteProperty={() => setShowDeleteProperty(true)}
         onRenameProperty={handleRenameProperty}
       />
-      <TopNav active={page} onChange={navigateTo} bookingCount={pendingBookings.length} />
+      <TopNav active={page} onChange={navigateTo} bookingCount={pendingBookings.length} overdueCount={tenants.filter(t => computeTenantStatus(t) === STATUS.OVERDUE).length} />
 
       {(pullY > 0 || refreshing) && (
         <div
@@ -2576,6 +2582,7 @@ export default function App({ session, organizationName, organizationId: orgIdPr
           onEdit={t => { setViewingTenantId(null); setEditingTenant(t); navigateTo('tenants'); }}
           onVacate={t => { setViewingTenantId(null); setVacatingTenant(t); }}
           onDelete={t => { setViewingTenantId(null); handleDelete(t); }}
+          onTenantUpdated={() => fetchTenants(selectedPropertyId || null).then(setTenants).catch(console.error)}
         />
       )}
 
@@ -2593,7 +2600,7 @@ export default function App({ session, organizationName, organizationId: orgIdPr
         />
       )}
 
-      <BottomNav active={page} onChange={navigateTo} bookingCount={pendingBookings.length} />
+      <BottomNav active={page} onChange={navigateTo} bookingCount={pendingBookings.length} overdueCount={tenants.filter(t => computeTenantStatus(t) === STATUS.OVERDUE).length} />
     </div>
   );
 }

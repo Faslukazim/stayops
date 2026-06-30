@@ -435,6 +435,25 @@ function RoomDetail({ room, rooms, selectedPropertyId, organizationId, upiId, on
   const [editingRoomNumber, setEditingRoomNumber] = useState(false);
   const [roomNumberDraft, setRoomNumberDraft] = useState(room.room_number);
   const [savingRoomNumber, setSavingRoomNumber] = useState(false);
+  const [markingAllPaid, setMarkingAllPaid] = useState(false);
+
+  async function handleMarkAllPaid() {
+    const unpaidBeds = room.beds.filter(b => b.occupancy?.payment_status === 'Unpaid' && b.tenant);
+    if (unpaidBeds.length === 0) return;
+    setMarkingAllPaid(true);
+    const currentYM = new Date().toISOString().slice(0, 7);
+    const today = new Date().toISOString().slice(0, 10);
+    try {
+      await Promise.all(unpaidBeds.map(async bed => {
+        await updateTenant(bed.tenant.id, { paymentStatus: 'Paid', paymentDate: today });
+        await markTenantRecordPaid(bed.tenant.id, currentYM, bed.occupancy.monthly_rent, null).catch(() => {});
+      }));
+      logActivity(selectedPropertyId, 'payment_paid', `All unpaid beds in Room ${room.room_number} marked paid`);
+      toast.success(`${unpaidBeds.length} tenant${unpaidBeds.length > 1 ? 's' : ''} marked paid`);
+      onRoomUpdate();
+    } catch (e) { toast.error(e.message); }
+    finally { setMarkingAllPaid(false); }
+  }
 
   async function handleSaveRoomNumber() {
     const val = roomNumberDraft.trim();
@@ -561,6 +580,12 @@ function RoomDetail({ room, rooms, selectedPropertyId, organizationId, upiId, on
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {unpaid > 0 && (
+            <Btn variant="filled-success" size="sm" onClick={handleMarkAllPaid} disabled={markingAllPaid}>
+              {markingAllPaid ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+              Mark all paid
+            </Btn>
+          )}
           {hasAvailable && (
             <Btn variant="primary" size="sm" onClick={() => onAssign(room)}>
               <Plus className="h-4 w-4" />
